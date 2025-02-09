@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Podiatry Service Tracker with OCR</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    table, th, td {
+      border: 1px solid #444;
+      border-collapse: collapse;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    button {
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    button.done {
+      background-color: #4CAF50;
+      color: white;
+    }
+    #uploadSection {
+      margin-bottom: 20px;
+    }
+    #status {
+      font-style: italic;
+      color: #555;
+    }
+  </style>
+  <!-- Include Tesseract.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <h1>Podiatry Service Tracker with OCR</h1>
+  
+  <div id="uploadSection">
+    <p>
+      Upload a screenshot (image file) containing patient names (one name per line):
+    </p>
+    <input type="file" id="fileInput" accept="image/*">
+    <button id="uploadButton">Upload Screenshot & Process OCR</button>
+    <p id="status"></p>
+  </div>
+
+  <table id="patientsTable">
+    <thead>
+      <tr>
+        <th>Patient</th>
+        <th>Night Splint</th>
+        <th>Cam Boots</th>
+        <th>Casting</th>
+        <th>X-Rays</th>
+        <th>Ultrasound</th>
+        <th>Routine Care</th>
+        <th>Injection</th>
+        <th>Ordering Diabetic Shoes</th>
+        <th>Nail Procedure</th>
+        <th>ASO Brace</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Rows will be inserted here after OCR processing -->
+    </tbody>
+  </table>
+
+  <script>
+    // Toggle a button's state between "Mark Done" and "Done"
+    function toggleButton(button) {
+      if (button.classList.contains('done')) {
+        button.classList.remove('done');
+        button.textContent = 'Mark Done';
+      } else {
+        button.classList.add('done');
+        button.textContent = 'Done';
+      }
+    }
+
+    // Create a table row for a given patient name/label
+    function createRow(label) {
+      const tr = document.createElement('tr');
+
+      // Create the cell for the patient name/label
+      const labelTd = document.createElement('td');
+      labelTd.textContent = label;
+      tr.appendChild(labelTd);
+
+      // Define the list of procedures
+      const procedures = [
+        'Night Splint', 
+        'Cam Boots', 
+        'Casting', 
+        'X-Rays', 
+        'Ultrasound', 
+        'Routine Care',
+        'Injection',
+        'Ordering Diabetic Shoes',
+        'Nail Procedure',
+        'ASO Brace'
+      ];
+      
+      // Create a button for each procedure
+      procedures.forEach(() => {
+        const td = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.textContent = 'Mark Done';
+        btn.addEventListener('click', () => toggleButton(btn));
+        td.appendChild(btn);
+        tr.appendChild(td);
+      });
+      
+      return tr;
+    }
+
+    // Function to populate the table with an array of names
+    function populateTable(names) {
+      const tbody = document.querySelector('#patientsTable tbody');
+      tbody.innerHTML = ''; // Clear existing rows
+      names.forEach(name => {
+        const trimmedName = name.trim();
+        if (trimmedName !== '') {
+          tbody.appendChild(createRow(trimmedName));
+        }
+      });
+    }
+
+    // Set up the file upload handler for OCR processing
+    document.getElementById('uploadButton').addEventListener('click', function() {
+      const fileInput = document.getElementById('fileInput');
+      const statusElem = document.getElementById('status');
+      
+      if (fileInput.files.length === 0) {
+        alert('Please select an image file first.');
+        return;
+      }
+      
+      const file = fileInput.files[0];
+
+      // Display a status message
+      statusElem.textContent = 'Processing OCR, please wait...';
+
+      // Use Tesseract.js to perform OCR on the uploaded image
+      Tesseract.recognize(
+        file,
+        'eng',
+        { logger: m => console.log(m) }
+      )
+      .then(({ data: { text } }) => {
+        statusElem.textContent = 'OCR processing complete.';
+        // Split the recognized text into lines (assuming one patient per line)
+        const names = text.split(/\r?\n/);
+        populateTable(names);
+      })
+      .catch(err => {
+        console.error(err);
+        statusElem.textContent = 'Error during OCR processing.';
+      });
+    });
+  </script>
+</body>
+</html>
