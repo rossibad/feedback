@@ -117,6 +117,8 @@
       if(username === 'podiatry' && password === 'MFA') {
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
+        // Automatically scroll down to the main productivity hub
+        document.getElementById('mainContent').scrollIntoView({ behavior: 'smooth' });
       } else {
         document.getElementById('errorMessage').classList.remove('d-none');
       }
