@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Podiatric Office Feedback Form</title>
+</head>
+<body>
+  <h1>Podiatric Office Employee Feedback Form</h1>
+
+  <form>
+    <!-- Employee Feedback Section -->
+    <fieldset>
+      <legend>Employee Feedback</legend>
+      
+      <!-- Dropdown for selecting an employee -->
+      <label for="employee">Select Employee:</label><br>
+      <select id="employee" name="employee">
+        <option value="" disabled selected>Select an employee</option>
+        <option value="employee1">Employee 1</option>
+        <option value="employee2">Employee 2</option>
+        <option value="employee3">Employee 3</option>
+      </select>
+      <br><br>
+      
+      <!-- Radio buttons for feedback classification -->
+      <p>Feedback Type:</p>
+      <input type="radio" id="positive" name="feedbackType" value="positive">
+      <label for="positive">Positive Recognition</label><br>
+      <input type="radio" id="constructive" name="feedbackType" value="constructive">
+      <label for="constructive">Constructive Suggestion</label><br>
+      <input type="radio" id="general" name="feedbackType" value="general">
+      <label for="general">General Observation</label>
+      <br><br>
+      
+      <!-- Short text box for feedback entry -->
+      <label for="feedbackText">Feedback (max 250 characters):</label><br>
+      <textarea id="feedbackText" name="feedbackText" maxlength="250" rows="4" cols="50" placeholder="Enter your feedback here"></textarea>
+      <br><br>
+      
+      <!-- 1-5 star rating scale for team contribution -->
+      <p>Team Contribution Rating:</p>
+      <input type="radio" id="star1" name="rating" value="1">
+      <label for="star1">1</label>
+      <input type="radio" id="star2" name="rating" value="2">
+      <label for="star2">2</label>
+      <input type="radio" id="star3" name="rating" value="3">
+      <label for="star3">3</label>
+      <input type="radio" id="star4" name="rating" value="4">
+      <label for="star4">4</label>
+      <input type="radio" id="star5" name="rating" value="5">
+      <label for="star5">5</label>
+      <br><br>
+      
+      <!-- Text box for what the employee does best -->
+      <label for="strength">What do you think this employee does best?</label><br>
+      <textarea id="strength" name="strength" rows="3" cols="50" placeholder="Enter what this employee excels at"></textarea>
+      <br><br>
+      
+      <!-- Optional text box for suggestions for growth -->
+      <label for="suggestions">Any suggestions to help this person grow in their role? (Optional)</label><br>
+      <textarea id="suggestions" name="suggestions" rows="3" cols="50" placeholder="Enter your suggestions here"></textarea>
+      <br><br>
+    </fieldset>
+    
+    <br>
+    
+    <!-- Self-Reflection Section -->
+    <fieldset>
+      <legend>Self-Reflection (Optional)</legend>
+      
+      <label for="proud">What is something you’re proud of in your work lately?</label><br>
+      <textarea id="proud" name="proud" rows="3" cols="50" placeholder="Share something you're proud of"></textarea>
+      <br><br>
+      
+      <label for="improve">What skill would you like to improve?</label><br>
+      <textarea id="improve" name="improve" rows="3" cols="50" placeholder="Enter the skill you want to improve"></textarea>
+      <br><br>
+      
+      <label for="support">What support do you need from the team or management?</label><br>
+      <textarea id="support" name="support" rows="3" cols="50" placeholder="Enter the support you need"></textarea>
+      <br><br>
+    </fieldset>
+    
+    <!-- Note: No submission functionality is included -->
+  </form>
+</body>
+</html>
