@@ -100,7 +100,7 @@
   <!-- Bootstrap JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Simple front-end login authentication that fades in the Productivity Hub
+    // Simple front-end login authentication with fade-in and scroll effect
     document.getElementById('loginForm').addEventListener('submit', function(event) {
       event.preventDefault();
       const username = document.getElementById('username').value.trim();
@@ -114,6 +114,8 @@
         // Force reflow to trigger the CSS transition
         void mainHub.offsetWidth;
         mainHub.classList.add('fade-in');
+        // Scroll the Productivity Hub into view
+        mainHub.scrollIntoView({ behavior: 'smooth' });
       } else {
         errorMsg.style.display = 'block';
       }
