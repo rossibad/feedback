@@ -32,6 +32,7 @@
     }
     th.fixed {
       background-color: #ddd;
+      cursor: default;
     }
     button {
       padding: 5px 10px;
@@ -86,6 +87,11 @@
     <p id="status"></p>
   </div>
 
+  <!-- Instructional Message for Drag and Drop -->
+  <p style="font-style: italic; color: #555;">
+    Hint: Drag and drop the procedure columns (except Patient and New?) to rearrange their order.
+  </p>
+
   <!-- Patients Table -->
   <table id="patientsTable">
     <thead>
@@ -94,17 +100,17 @@
         <th class="fixed">Patient</th>
         <th class="fixed">New?</th>
         <!-- Draggable columns: Procedures and Actions -->
-        <th>Night Splint</th>
-        <th>Cam Boots</th>
-        <th>Casting</th>
-        <th>X-Rays</th>
-        <th>Ultrasound</th>
-        <th>Routine Care</th>
-        <th>Injection</th>
-        <th>Ordering Diabetic Shoes</th>
-        <th>Nail Procedure</th>
-        <th>ASO Brace</th>
-        <th>Actions</th>
+        <th title="Drag to rearrange" style="cursor: move;">Night Splint</th>
+        <th title="Drag to rearrange" style="cursor: move;">Cam Boots</th>
+        <th title="Drag to rearrange" style="cursor: move;">Casting</th>
+        <th title="Drag to rearrange" style="cursor: move;">X-Rays</th>
+        <th title="Drag to rearrange" style="cursor: move;">Ultrasound</th>
+        <th title="Drag to rearrange" style="cursor: move;">Routine Care</th>
+        <th title="Drag to rearrange" style="cursor: move;">Injection</th>
+        <th title="Drag to rearrange" style="cursor: move;">Ordering Diabetic Shoes</th>
+        <th title="Drag to rearrange" style="cursor: move;">Nail Procedure</th>
+        <th title="Drag to rearrange" style="cursor: move;">ASO Brace</th>
+        <th title="Drag to rearrange" style="cursor: move;">Actions</th>
       </tr>
     </thead>
     <tbody>
