@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Podiatry Service Tracker - Test & Manage Patients</title>
+  <title>Podiatry Service Tracker - Test, Manage & Reorder Columns</title>
   <style>
     body {
       font-family: sans-serif;
@@ -28,6 +28,10 @@
     }
     th {
       background-color: #f0f0f0;
+      user-select: none;
+    }
+    th.fixed {
+      background-color: #ddd;
     }
     button {
       padding: 5px 10px;
@@ -86,8 +90,10 @@
   <table id="patientsTable">
     <thead>
       <tr>
-        <th>Patient</th>
-        <th>New?</th>
+        <!-- Fixed columns: Patient and New? -->
+        <th class="fixed">Patient</th>
+        <th class="fixed">New?</th>
+        <!-- Draggable columns: Procedures and Actions -->
         <th>Night Splint</th>
         <th>Cam Boots</th>
         <th>Casting</th>
@@ -107,6 +113,10 @@
   </table>
 
   <script>
+    // ***********************
+    // Utility Functions
+    // ***********************
+
     // Toggle a procedure button's state between "Mark Done" and "Done"
     function toggleButton(button) {
       if (button.classList.contains('done')) {
@@ -187,6 +197,8 @@
           tbody.appendChild(createRow(trimmedName));
         }
       });
+      // Re-enable column drag & drop after table update
+      enableColumnDragAndDrop();
     }
 
     // Append a single row (for manual additions) without clearing the table
@@ -195,10 +207,13 @@
       const trimmedName = name.trim();
       if (trimmedName !== '') {
         tbody.appendChild(createRow(trimmedName));
+        enableColumnDragAndDrop();
       }
     }
 
-    // --- Event Listeners ---
+    // ***********************
+    // OCR & Button Event Listeners
+    // ***********************
 
     // Preview Sample Names button
     document.getElementById('previewButton').addEventListener('click', function() {
@@ -255,6 +270,89 @@
         console.error(err);
         statusElem.textContent = 'Error during OCR processing.';
       });
+    });
+
+    // ***********************
+    // Column Drag & Drop (Reordering)
+    // ***********************
+
+    // Only allow reordering for header cells that are not fixed (i.e. not "Patient" or "New?")
+    function enableColumnDragAndDrop() {
+      const headerCells = document.querySelectorAll('#patientsTable thead th');
+      headerCells.forEach((cell, index) => {
+        // Check if this column is fixed (by class)
+        if (cell.classList.contains('fixed')) {
+          cell.draggable = false;
+          cell.removeEventListener('dragstart', handleDragStart);
+          cell.removeEventListener('dragover', handleDragOver);
+          cell.removeEventListener('drop', handleDrop);
+        } else {
+          cell.draggable = true;
+          cell.addEventListener('dragstart', handleDragStart);
+          cell.addEventListener('dragover', handleDragOver);
+          cell.addEventListener('drop', handleDrop);
+        }
+      });
+    }
+
+    let draggedColIndex = null;
+
+    function handleDragStart(e) {
+      draggedColIndex = e.target.cellIndex;
+      e.dataTransfer.setData("text/plain", draggedColIndex);
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      const targetColIndex = e.target.cellIndex;
+      // If target header is fixed, do nothing.
+      if (e.target.classList.contains('fixed')) {
+        return;
+      }
+      const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
+      // Do nothing if source is fixed (shouldn't happen)
+      const headerCells = document.querySelectorAll('#patientsTable thead th');
+      if (headerCells[sourceIndex].classList.contains('fixed')) {
+        return;
+      }
+      if (sourceIndex !== targetColIndex) {
+        reorderTableColumns(sourceIndex, targetColIndex);
+        // Reinitialize drag & drop handlers after reordering
+        enableColumnDragAndDrop();
+      }
+    }
+
+    // Reorder columns in every row (both header and body)
+    function reorderTableColumns(fromIndex, toIndex) {
+      const table = document.getElementById("patientsTable");
+      const rows = table.rows;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.cells;
+        // Get the cell to move
+        let cell = cells[fromIndex];
+        // Adjust target index if moving rightward
+        let adjustedIndex = toIndex;
+        if (fromIndex < toIndex) {
+          adjustedIndex--;
+        }
+        row.removeChild(cell);
+        if (adjustedIndex >= cells.length) {
+          row.appendChild(cell);
+        } else {
+          row.insertBefore(cell, cells[adjustedIndex]);
+        }
+      }
+    }
+
+    // Initialize drag & drop functionality on page load
+    document.addEventListener("DOMContentLoaded", function() {
+      enableColumnDragAndDrop();
     });
   </script>
 </body>
