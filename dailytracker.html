@@ -2,15 +2,27 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Podiatry Service Tracker with OCR, Preview & Manual Entry</title>
+  <title>Podiatry Service Tracker - Test & Manage Patients</title>
   <style>
     body {
       font-family: sans-serif;
       margin: 20px;
     }
+    .section {
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    .section h2 {
+      margin-top: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
     table, th, td {
       border: 1px solid #444;
-      border-collapse: collapse;
       padding: 8px;
       text-align: center;
     }
@@ -25,45 +37,49 @@
       background-color: #4CAF50;
       color: white;
     }
-    #uploadSection, #previewSection, #manualSection {
-      margin-bottom: 20px;
+    .action-button {
+      background-color: #f44336;
+      color: white;
+      border: none;
     }
-    #status {
-      font-style: italic;
-      color: #555;
+    input[type="text"] {
+      padding: 5px;
     }
   </style>
-  <!-- Include Tesseract.js from CDN -->
+  <!-- Include Tesseract.js from CDN for OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
 </head>
 <body>
-  <h1>Podiatry Service Tracker with OCR, Preview & Manual Entry</h1>
-  
-  <!-- OCR Upload Section -->
-  <div id="uploadSection">
-    <p>
-      Upload a screenshot (image file) containing patient names (one name per line):
-    </p>
-    <input type="file" id="fileInput" accept="image/*">
-    <button id="uploadButton">Upload Screenshot & Process OCR</button>
-    <p id="status"></p>
-  </div>
+  <h1>Podiatry Service Tracker</h1>
+  <p>
+    Test the app with sample names, add names manually, or upload an image file (screenshot) containing names (one per line).  
+    Use the "New?" checkbox to mark a patient as new, and the "Remove" button to delete a row.
+  </p>
 
-  <!-- Preview Sample Names Section -->
-  <div id="previewSection">
-    <p>
-      Preview sample patient names:
-    </p>
+  <!-- Preview Section -->
+  <div class="section" id="previewSection">
+    <h2>Preview Sample Names</h2>
+    <p>Click the button below to populate the table with sample patient names.</p>
     <button id="previewButton">Preview Sample Names</button>
   </div>
 
   <!-- Manual Entry Section -->
-  <div id="manualSection">
-    <p>
-      Manually add a patient name:
-    </p>
+  <div class="section" id="manualSection">
+    <h2>Manually Add Patient</h2>
+    <p>Enter a patient's name and click "Add Patient" to add it to the list below.</p>
     <input type="text" id="manualName" placeholder="First Last">
-    <button id="manualAddButton">Add Name</button>
+    <button id="manualAddButton">Add Patient</button>
+  </div>
+
+  <!-- File Upload (OCR) Section -->
+  <div class="section" id="uploadSection">
+    <h2>Upload Patient Names from File (OCR)</h2>
+    <p>
+      Upload an image file (screenshot) that contains patient names (one per line). The OCR process will extract the names and add them to the list below.
+    </p>
+    <input type="file" id="fileInput" accept="image/*">
+    <button id="uploadButton">Upload and Process OCR</button>
+    <p id="status"></p>
   </div>
 
   <!-- Patients Table -->
@@ -71,6 +87,7 @@
     <thead>
       <tr>
         <th>Patient</th>
+        <th>New?</th>
         <th>Night Splint</th>
         <th>Cam Boots</th>
         <th>Casting</th>
@@ -81,15 +98,16 @@
         <th>Ordering Diabetic Shoes</th>
         <th>Nail Procedure</th>
         <th>ASO Brace</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
-      <!-- Rows will be inserted here -->
+      <!-- Rows will be added here -->
     </tbody>
   </table>
 
   <script>
-    // Toggle a button's state between "Mark Done" and "Done"
+    // Toggle a procedure button's state between "Mark Done" and "Done"
     function toggleButton(button) {
       if (button.classList.contains('done')) {
         button.classList.remove('done');
@@ -100,16 +118,32 @@
       }
     }
 
-    // Create a table row for a given patient name/label
-    function createRow(label) {
+    // Remove a row from the table
+    function removeRow(button) {
+      const row = button.closest('tr');
+      if (row) {
+        row.remove();
+      }
+    }
+
+    // Create a table row for a given patient name
+    function createRow(name) {
       const tr = document.createElement('tr');
 
-      // Create the cell for the patient name/label
-      const labelTd = document.createElement('td');
-      labelTd.textContent = label;
-      tr.appendChild(labelTd);
+      // Patient Name Cell
+      const nameTd = document.createElement('td');
+      nameTd.textContent = name;
+      tr.appendChild(nameTd);
 
-      // Define the list of procedures
+      // New Patient Checkbox Cell
+      const newTd = document.createElement('td');
+      const newCheckbox = document.createElement('input');
+      newCheckbox.type = 'checkbox';
+      newCheckbox.title = 'Check if new patient';
+      newTd.appendChild(newCheckbox);
+      tr.appendChild(newTd);
+
+      // List of procedures
       const procedures = [
         'Night Splint', 
         'Cam Boots', 
@@ -122,8 +156,6 @@
         'Nail Procedure',
         'ASO Brace'
       ];
-      
-      // Create a button for each procedure
       procedures.forEach(() => {
         const td = document.createElement('td');
         const btn = document.createElement('button');
@@ -132,11 +164,20 @@
         td.appendChild(btn);
         tr.appendChild(td);
       });
-      
+
+      // Actions Cell: Remove button
+      const actionsTd = document.createElement('td');
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = 'Remove';
+      removeBtn.classList.add('action-button');
+      removeBtn.addEventListener('click', () => removeRow(removeBtn));
+      actionsTd.appendChild(removeBtn);
+      tr.appendChild(actionsTd);
+
       return tr;
     }
 
-    // Populate the table with an array of names (clears current table)
+    // Populate the table with an array of names (clears existing rows)
     function populateTable(names) {
       const tbody = document.querySelector('#patientsTable tbody');
       tbody.innerHTML = ''; // Clear existing rows
@@ -148,7 +189,7 @@
       });
     }
 
-    // Append a single row (for manual additions)
+    // Append a single row (for manual additions) without clearing the table
     function addRow(name) {
       const tbody = document.querySelector('#patientsTable tbody');
       const trimmedName = name.trim();
@@ -159,37 +200,7 @@
 
     // --- Event Listeners ---
 
-    // OCR Upload Button
-    document.getElementById('uploadButton').addEventListener('click', function() {
-      const fileInput = document.getElementById('fileInput');
-      const statusElem = document.getElementById('status');
-      
-      if (fileInput.files.length === 0) {
-        alert('Please select an image file first.');
-        return;
-      }
-      
-      const file = fileInput.files[0];
-      statusElem.textContent = 'Processing OCR, please wait...';
-
-      Tesseract.recognize(
-        file,
-        'eng',
-        { logger: m => console.log(m) }
-      )
-      .then(({ data: { text } }) => {
-        statusElem.textContent = 'OCR processing complete.';
-        // Split OCR result into lines assuming one patient per line
-        const names = text.split(/\r?\n/);
-        populateTable(names);
-      })
-      .catch(err => {
-        console.error(err);
-        statusElem.textContent = 'Error during OCR processing.';
-      });
-    });
-
-    // Preview Button: Loads 10 sample names
+    // Preview Sample Names button
     document.getElementById('previewButton').addEventListener('click', function() {
       const sampleNames = [
         'John Doe',
@@ -206,7 +217,7 @@
       populateTable(sampleNames);
     });
 
-    // Manual Add Button: Append a new name from input
+    // Manual Add Patient button
     document.getElementById('manualAddButton').addEventListener('click', function() {
       const manualInput = document.getElementById('manualName');
       const name = manualInput.value;
@@ -215,7 +226,35 @@
         return;
       }
       addRow(name);
-      manualInput.value = ''; // Clear input field
+      manualInput.value = ''; // Clear the input field
+    });
+
+    // Upload and Process OCR button
+    document.getElementById('uploadButton').addEventListener('click', function() {
+      const fileInput = document.getElementById('fileInput');
+      const statusElem = document.getElementById('status');
+      if (fileInput.files.length === 0) {
+        alert('Please select an image file that contains patient names (one per line).');
+        return;
+      }
+      const file = fileInput.files[0];
+      statusElem.textContent = 'Processing OCR, please wait...';
+
+      Tesseract.recognize(
+        file,
+        'eng',
+        { logger: m => console.log(m) }
+      )
+      .then(({ data: { text } }) => {
+        statusElem.textContent = 'OCR processing complete.';
+        // Split OCR result by newline (assuming one name per line)
+        const names = text.split(/\r?\n/);
+        populateTable(names);
+      })
+      .catch(err => {
+        console.error(err);
+        statusElem.textContent = 'Error during OCR processing.';
+      });
     });
   </script>
 </body>
