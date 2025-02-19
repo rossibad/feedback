@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Podiatry Service Tracker - Inventory & Reordering</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    .section {
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    .section h2 {
+      margin-top: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f0f0f0;
+      user-select: none;
+    }
+    th.fixed {
+      background-color: #ddd;
+      cursor: default;
+    }
+    button {
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    button.done {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .action-button {
+      background-color: #f44336;
+      color: white;
+      border: none;
+    }
+    input[type="text"] {
+      padding: 5px;
+    }
+    /* Styling for the inventory display section */
+    #inventoryDisplay {
+      margin-top: 30px;
+      padding: 10px;
+      border: 2px solid #888;
+    }
+  </style>
+  <!-- Include Tesseract.js from CDN for OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <h1>Podiatry Service Tracker</h1>
+  <p>
+    Test the app with sample names, add names manually, or upload an image (screenshot) containing patient names (one per line).  
+    Use the "New?" checkbox to mark a patient as new and the "Remove" button to delete a row.
+  </p>
+
+  <!-- Preview Section -->
+  <div class="section" id="previewSection">
+    <h2>Preview Sample Names</h2>
+    <p>Click the button below to populate the table with sample patient names.</p>
+    <button id="previewButton">Preview Sample Names</button>
+  </div>
+
+  <!-- Manual Entry Section -->
+  <div class="section" id="manualSection">
+    <h2>Manually Add Patient</h2>
+    <p>Enter a patient's name and click "Add Patient" to add it to the list below.</p>
+    <input type="text" id="manualName" placeholder="First Last">
+    <button id="manualAddButton">Add Patient</button>
+  </div>
+
+  <!-- File Upload (OCR) Section -->
+  <div class="section" id="uploadSection">
+    <h2>Upload Patient Names from File (OCR)</h2>
+    <p>
+      Upload an image file (screenshot) that contains patient names (one per line). The OCR process will extract the names and add them to the list below.
+    </p>
+    <input type="file" id="fileInput" accept="image/*">
+    <button id="uploadButton">Upload and Process OCR</button>
+    <p id="status"></p>
+  </div>
+
+  <!-- Instructional Message for Drag and Drop -->
+  <p style="font-style: italic; color: #555;">
+    Hint: Drag and drop the procedure columns (except Patient and New?) to rearrange their order.
+  </p>
+
+  <!-- Patients Table -->
+  <table id="patientsTable">
+    <thead>
+      <tr>
+        <!-- Fixed columns: Patient and New? -->
+        <th class="fixed">Patient</th>
+        <th class="fixed">New?</th>
+        <!-- Draggable columns: Procedures and Actions -->
+        <th title="Drag to rearrange" style="cursor: move;">Night Splint</th>
+        <th title="Drag to rearrange" style="cursor: move;">Cam Boots</th>
+        <th title="Drag to rearrange" style="cursor: move;">Casting</th>
+        <th title="Drag to rearrange" style="cursor: move;">X-Rays</th>
+        <th title="Drag to rearrange" style="cursor: move;">Ultrasound</th>
+        <th title="Drag to rearrange" style="cursor: move;">Routine Care</th>
+        <th title="Drag to rearrange" style="cursor: move;">Injection</th>
+        <th title="Drag to rearrange" style="cursor: move;">Ordering Diabetic Shoes</th>
+        <th title="Drag to rearrange" style="cursor: move;">Nail Procedure</th>
+        <th title="Drag to rearrange" style="cursor: move;">ASO Brace</th>
+        <th title="Drag to rearrange" style="cursor: move;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Rows will be added here -->
+    </tbody>
+  </table>
+
+  <!-- Inventory Display Section -->
+  <div id="inventoryDisplay">
+    <h2>Inventory Tally</h2>
+    <!-- Inventory counts will be shown here -->
+  </div>
+
+  <script>
+    // Global inventory object (starting counts for each service)
+    const inventory = {
+      "Night Splint": 10,
+      "Cam Boots": 10,
+      "Casting": 10,
+      "X-Rays": 10,
+      "Ultrasound": 10,
+      "Routine Care": 10,
+      "Injection": 10,
+      "Ordering Diabetic Shoes": 10,
+      "Nail Procedure": 10,
+      "ASO Brace": 10
+    };
+
+    // Update the inventory display below the table
+    function updateInventoryDisplay() {
+      const display = document.getElementById('inventoryDisplay');
+      // Clear existing content (except the header)
+      display.innerHTML = '<h2>Inventory Tally</h2>';
+      for (const [service, count] of Object.entries(inventory)) {
+        const serviceDiv = document.createElement('div');
+        serviceDiv.style.margin = '4px 0';
+        serviceDiv.textContent = service + ": " + count;
+        if (count <= 5) {
+          serviceDiv.style.fontSize = '20px';
+          serviceDiv.style.color = 'red';
+          serviceDiv.style.fontWeight = 'bold';
+          serviceDiv.textContent += " - LOW STOCK!";
+        } else {
+          serviceDiv.style.fontSize = '16px';
+          serviceDiv.style.color = '#000';
+        }
+        display.appendChild(serviceDiv);
+      }
+    }
+
+    // Update inventory count for a specific service
+    function updateInventory(service, change) {
+      if (inventory.hasOwnProperty(service)) {
+        inventory[service] += change;
+        if (inventory[service] < 0) inventory[service] = 0;
+        updateInventoryDisplay();
+      }
+    }
+
+    // Toggle a procedure button's state between "Mark Done" and "Done" and update inventory
+    function toggleButton(button) {
+      const service = button.dataset.service;
+      if (button.classList.contains('done')) {
+        button.classList.remove('done');
+        button.textContent = 'Mark Done';
+        // Undo dispensing: add back one unit
+        updateInventory(service, +1);
+      } else {
+        button.classList.add('done');
+        button.textContent = 'Done';
+        // Dispense one unit: subtract one unit
+        updateInventory(service, -1);
+      }
+    }
+
+    // Remove a row from the table
+    function removeRow(button) {
+      const row = button.closest('tr');
+      if (row) {
+        // Optionally, you might want to update inventory if a service was marked done in that row.
+        row.remove();
+      }
+    }
+
+    // Create a table row for a given patient name
+    function createRow(name) {
+      const tr = document.createElement('tr');
+
+      // Patient Name Cell
+      const nameTd = document.createElement('td');
+      nameTd.textContent = name;
+      tr.appendChild(nameTd);
+
+      // New Patient Checkbox Cell
+      const newTd = document.createElement('td');
+      const newCheckbox = document.createElement('input');
+      newCheckbox.type = 'checkbox';
+      newCheckbox.title = 'Check if new patient';
+      newTd.appendChild(newCheckbox);
+      tr.appendChild(newTd);
+
+      // List of procedures (buttons with associated service names)
+      const procedures = [
+        'Night Splint', 
+        'Cam Boots', 
+        'Casting', 
+        'X-Rays', 
+        'Ultrasound', 
+        'Routine Care',
+        'Injection',
+        'Ordering Diabetic Shoes',
+        'Nail Procedure',
+        'ASO Brace'
+      ];
+      procedures.forEach(serviceName => {
+        const td = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.textContent = 'Mark Done';
+        // Attach service name so we know which inventory to update
+        btn.dataset.service = serviceName;
+        btn.addEventListener('click', () => toggleButton(btn));
+        td.appendChild(btn);
+        tr.appendChild(td);
+      });
+
+      // Actions Cell: Remove button
+      const actionsTd = document.createElement('td');
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = 'Remove';
+      removeBtn.classList.add('action-button');
+      removeBtn.addEventListener('click', () => removeRow(removeBtn));
+      actionsTd.appendChild(removeBtn);
+      tr.appendChild(actionsTd);
+
+      return tr;
+    }
+
+    // Populate the table with an array of names (clears existing rows)
+    function populateTable(names) {
+      const tbody = document.querySelector('#patientsTable tbody');
+      tbody.innerHTML = ''; // Clear existing rows
+      names.forEach(name => {
+        const trimmedName = name.trim();
+        if (trimmedName !== '') {
+          tbody.appendChild(createRow(trimmedName));
+        }
+      });
+      enableColumnDragAndDrop();
+    }
+
+    // Append a single row (for manual additions) without clearing the table
+    function addRow(name) {
+      const tbody = document.querySelector('#patientsTable tbody');
+      const trimmedName = name.trim();
+      if (trimmedName !== '') {
+        tbody.appendChild(createRow(trimmedName));
+        enableColumnDragAndDrop();
+      }
+    }
+
+    // ***********************
+    // OCR & Button Event Listeners
+    // ***********************
+
+    // Preview Sample Names button
+    document.getElementById('previewButton').addEventListener('click', function() {
+      const sampleNames = [
+        'John Doe',
+        'Jane Smith',
+        'Alice Johnson',
+        'Bob Brown',
+        'Charlie Davis',
+        'Emily Wilson',
+        'Frank Miller',
+        'Grace Lee',
+        'Hannah Taylor',
+        'Ian Clark'
+      ];
+      populateTable(sampleNames);
+    });
+
+    // Manual Add Patient button
+    document.getElementById('manualAddButton').addEventListener('click', function() {
+      const manualInput = document.getElementById('manualName');
+      const name = manualInput.value;
+      if (name.trim() === '') {
+        alert('Please enter a valid name.');
+        return;
+      }
+      addRow(name);
+      manualInput.value = ''; // Clear the input field
+    });
+
+    // Upload and Process OCR button
+    document.getElementById('uploadButton').addEventListener('click', function() {
+      const fileInput = document.getElementById('fileInput');
+      const statusElem = document.getElementById('status');
+      if (fileInput.files.length === 0) {
+        alert('Please select an image file that contains patient names (one per line).');
+        return;
+      }
+      const file = fileInput.files[0];
+      statusElem.textContent = 'Processing OCR, please wait...';
+
+      Tesseract.recognize(
+        file,
+        'eng',
+        { logger: m => console.log(m) }
+      )
+      .then(({ data: { text } }) => {
+        statusElem.textContent = 'OCR processing complete.';
+        // Split OCR result by newline (assuming one name per line)
+        const names = text.split(/\r?\n/);
+        populateTable(names);
+      })
+      .catch(err => {
+        console.error(err);
+        statusElem.textContent = 'Error during OCR processing.';
+      });
+    });
+
+    // ***********************
+    // Column Drag & Drop (Reordering)
+    // ***********************
+
+    // Only allow reordering for header cells that are not fixed (i.e. not "Patient" or "New?")
+    function enableColumnDragAndDrop() {
+      const headerCells = document.querySelectorAll('#patientsTable thead th');
+      headerCells.forEach((cell, index) => {
+        if (cell.classList.contains('fixed')) {
+          cell.draggable = false;
+          cell.removeEventListener('dragstart', handleDragStart);
+          cell.removeEventListener('dragover', handleDragOver);
+          cell.removeEventListener('drop', handleDrop);
+        } else {
+          cell.draggable = true;
+          cell.addEventListener('dragstart', handleDragStart);
+          cell.addEventListener('dragover', handleDragOver);
+          cell.addEventListener('drop', handleDrop);
+        }
+      });
+    }
+
+    let draggedColIndex = null;
+
+    function handleDragStart(e) {
+      draggedColIndex = e.target.cellIndex;
+      e.dataTransfer.setData("text/plain", draggedColIndex);
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      const targetColIndex = e.target.cellIndex;
+      if (e.target.classList.contains('fixed')) return;
+      const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
+      const headerCells = document.querySelectorAll('#patientsTable thead th');
+      if (headerCells[sourceIndex].classList.contains('fixed')) return;
+      if (sourceIndex !== targetColIndex) {
+        reorderTableColumns(sourceIndex, targetColIndex);
+        enableColumnDragAndDrop();
+      }
+    }
+
+    // Reorder columns in every row (both header and body)
+    function reorderTableColumns(fromIndex, toIndex) {
+      const table = document.getElementById("patientsTable");
+      const rows = table.rows;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.cells;
+        let cell = cells[fromIndex];
+        let adjustedIndex = toIndex;
+        if (fromIndex < toIndex) {
+          adjustedIndex--;
+        }
+        row.removeChild(cell);
+        if (adjustedIndex >= cells.length) {
+          row.appendChild(cell);
+        } else {
+          row.insertBefore(cell, cells[adjustedIndex]);
+        }
+      }
+    }
+
+    // Initialize drag & drop functionality and inventory display on page load
+    document.addEventListener("DOMContentLoaded", function() {
+      enableColumnDragAndDrop();
+      updateInventoryDisplay();
+    });
+  </script>
+</body>
+</html>
