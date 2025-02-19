@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Podiatry Service Tracker - Inventory & Reordering</title>
+  <title>Podiatry Service Tracker - Inventory, Casting Auth & Reordering</title>
   <style>
     body {
       font-family: sans-serif;
@@ -55,6 +55,16 @@
       margin-top: 30px;
       padding: 10px;
       border: 2px solid #888;
+    }
+    /* Styling for Casting auth options */
+    .auth-options button {
+      margin-right: 5px;
+      padding: 3px 7px;
+      font-size: 90%;
+    }
+    .auth-message {
+      margin-top: 5px;
+      font-weight: bold;
     }
   </style>
   <!-- Include Tesseract.js from CDN for OCR -->
@@ -135,7 +145,7 @@
     const inventory = {
       "Night Splint": 10,
       "Cam Boots": 10,
-      "Casting": 10,
+      // Casting is NOT tracked
       "X-Rays": 10,
       "Ultrasound": 10,
       "Routine Care": 10,
@@ -176,7 +186,7 @@
       }
     }
 
-    // Toggle a procedure button's state between "Mark Done" and "Done" and update inventory
+    // Toggle a procedure button's state for non-Casting services
     function toggleButton(button) {
       const service = button.dataset.service;
       if (button.classList.contains('done')) {
@@ -196,7 +206,7 @@
     function removeRow(button) {
       const row = button.closest('tr');
       if (row) {
-        // Optionally, you might want to update inventory if a service was marked done in that row.
+        // Optionally, update inventory if needed
         row.remove();
       }
     }
@@ -231,14 +241,69 @@
         'Nail Procedure',
         'ASO Brace'
       ];
+
       procedures.forEach(serviceName => {
         const td = document.createElement('td');
-        const btn = document.createElement('button');
-        btn.textContent = 'Mark Done';
-        // Attach service name so we know which inventory to update
-        btn.dataset.service = serviceName;
-        btn.addEventListener('click', () => toggleButton(btn));
-        td.appendChild(btn);
+        if (serviceName === "Casting") {
+          // Special handling for Casting (no inventory check)
+          const container = document.createElement('div');
+          const castButton = document.createElement('button');
+          castButton.textContent = 'Mark Done';
+          castButton.addEventListener('click', function() {
+            if (castButton.classList.contains('done')) {
+              // Toggle off: remove auth options and message
+              castButton.classList.remove('done');
+              castButton.textContent = 'Mark Done';
+              const authOptions = container.querySelector('.auth-options');
+              if (authOptions) container.removeChild(authOptions);
+              const authMessage = container.querySelector('.auth-message');
+              if (authMessage) container.removeChild(authMessage);
+            } else {
+              // Toggle on: set to done and show auth options
+              castButton.classList.add('done');
+              castButton.textContent = 'Done';
+              // Create container for auth options if not already there
+              let authOptions = container.querySelector('.auth-options');
+              if (!authOptions) {
+                authOptions = document.createElement('div');
+                authOptions.className = 'auth-options';
+                authOptions.style.marginTop = '5px';
+                const authButton = document.createElement('button');
+                authButton.textContent = "Auth will be sent";
+                const authNotNeededButton = document.createElement('button');
+                authNotNeededButton.textContent = "Auth not needed";
+                authOptions.appendChild(authButton);
+                authOptions.appendChild(authNotNeededButton);
+                container.appendChild(authOptions);
+                // Container for auth message
+                const authMessage = document.createElement('div');
+                authMessage.className = 'auth-message';
+                authMessage.style.marginTop = '5px';
+                container.appendChild(authMessage);
+
+                // Event listeners for auth buttons
+                authButton.addEventListener('click', function() {
+                  // Get patient name from the row's first cell
+                  const row = td.parentElement;
+                  const patientName = row.cells[0].textContent;
+                  authMessage.textContent = "L3000 requested for " + patientName + ". Please copy and paste and send to Concepcion";
+                });
+                authNotNeededButton.addEventListener('click', function() {
+                  authMessage.textContent = "";
+                });
+              }
+            }
+          });
+          container.appendChild(castButton);
+          td.appendChild(container);
+        } else {
+          // Standard procedure button (with inventory tracking)
+          const btn = document.createElement('button');
+          btn.textContent = 'Mark Done';
+          btn.dataset.service = serviceName;
+          btn.addEventListener('click', () => toggleButton(btn));
+          td.appendChild(btn);
+        }
         tr.appendChild(td);
       });
 
@@ -328,7 +393,6 @@
       )
       .then(({ data: { text } }) => {
         statusElem.textContent = 'OCR processing complete.';
-        // Split OCR result by newline (assuming one name per line)
         const names = text.split(/\r?\n/);
         populateTable(names);
       })
@@ -342,7 +406,6 @@
     // Column Drag & Drop (Reordering)
     // ***********************
 
-    // Only allow reordering for header cells that are not fixed (i.e. not "Patient" or "New?")
     function enableColumnDragAndDrop() {
       const headerCells = document.querySelectorAll('#patientsTable thead th');
       headerCells.forEach((cell, index) => {
@@ -385,7 +448,6 @@
       }
     }
 
-    // Reorder columns in every row (both header and body)
     function reorderTableColumns(fromIndex, toIndex) {
       const table = document.getElementById("patientsTable");
       const rows = table.rows;
@@ -406,7 +468,6 @@
       }
     }
 
-    // Initialize drag & drop functionality and inventory display on page load
     document.addEventListener("DOMContentLoaded", function() {
       enableColumnDragAndDrop();
       updateInventoryDisplay();
