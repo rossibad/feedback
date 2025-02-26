@@ -39,6 +39,11 @@
       cursor: pointer;
       margin: 5px;
     }
+    /* When a procedure button is toggled, give it a grey background */
+    button.done {
+      background-color: #ccc;
+      color: white;
+    }
     input[type="text"] {
       padding: 5px;
     }
@@ -48,7 +53,6 @@
       font-size: 16px;
       color: #333;
     }
-    /* Additional styling for Casting auth options */
     .auth-options button {
       margin-right: 5px;
       padding: 3px 7px;
@@ -65,7 +69,7 @@
 <body>
   <h1>Podiatry Tracker App</h1>
   <p>
-    Use this app to track the items and services dispensed. You can add patient names manually, upload names via OCR, or preview sample data.
+    Use this app to track the items and services dispensed. You can preview sample names, add patient names manually, or upload names via OCR.
   </p>
 
   <!-- Preview Sample Names Section -->
@@ -112,50 +116,54 @@
       </tr>
     </thead>
     <tbody>
-      <!-- Rows will be dynamically added here -->
+      <!-- Table rows are populated dynamically -->
     </tbody>
   </table>
 
-  <!-- Export Button and Instructions -->
+  <!-- Google API Sign In/Out, Export, and Open Spreadsheet Buttons -->
+  <button id="signInButton" onclick="handleSignInClick()">Sign In with Google</button>
+  <button id="signOutButton" onclick="handleSignOutClick()" style="display:none;">Sign Out</button>
+  <button id="exportButton" onclick="exportToSheet()" disabled>Export to Google Sheets (with login)</button>
   <button id="exportNoLoginButton" onclick="exportWithoutLogin()">Export without logging into your Google account</button>
+  <button id="openSheetButton" onclick="window.location.href='https://docs.google.com/spreadsheets/d/1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk/edit?usp=sharing'">Open Spreadsheet</button>
+
+  <!-- Export Instructions -->
   <div id="exportInstructions">
-    <p>Instructions: First click "Export without logging into your Google account", then verify the updated data in your Google Sheet.</p>
+    <p>Instructions: To export with login, sign in and click "Export to Google Sheets (with login)". Otherwise, click "Export without logging into your Google account" and then verify your data by clicking "Open Spreadsheet".</p>
   </div>
 
-  <!-- JavaScript for App Functionality -->
+  <!-- JavaScript for Table and Export Functions -->
   <script>
-    // Populate table with an array of names
+    // --- Table functions ---
     function populateTable(names) {
       const tbody = document.querySelector("#patientsTable tbody");
       tbody.innerHTML = "";
       names.forEach(function(name) {
         const trimmedName = name.trim();
-        if (trimmedName !== "") {
+        if(trimmedName !== "") {
           tbody.appendChild(createRow(trimmedName));
         }
       });
       enableColumnDragAndDrop();
     }
-
-    // Add a single row
+    
     function addRow(name) {
       const tbody = document.querySelector("#patientsTable tbody");
       const trimmedName = name.trim();
-      if (trimmedName !== "") {
+      if(trimmedName !== "") {
         tbody.appendChild(createRow(trimmedName));
         enableColumnDragAndDrop();
       }
     }
-
-    // Create a row element with all columns
+    
     function createRow(name) {
       const tr = document.createElement("tr");
-
-      // Patient name cell
+      
+      // Patient cell
       const tdPatient = document.createElement("td");
       tdPatient.textContent = name;
       tr.appendChild(tdPatient);
-
+      
       // New? checkbox cell
       const tdNew = document.createElement("td");
       const checkbox = document.createElement("input");
@@ -163,8 +171,8 @@
       checkbox.title = "Check if new patient";
       tdNew.appendChild(checkbox);
       tr.appendChild(tdNew);
-
-      // List of procedures (and special handling for Casting)
+      
+      // Procedure columns
       const procedures = [
         "Night Splint",
         "Cam Boots",
@@ -179,8 +187,8 @@
       ];
       procedures.forEach(function(proc) {
         const td = document.createElement("td");
-        if (proc === "Casting") {
-          // Special handling for Casting with auth options
+        if(proc === "Casting") {
+          // Special handling for Casting
           const container = document.createElement("div");
           const castButton = document.createElement("button");
           castButton.textContent = "Mark Done";
@@ -200,7 +208,7 @@
         }
         tr.appendChild(td);
       });
-
+      
       // Actions column with Remove button
       const tdActions = document.createElement("td");
       const removeBtn = document.createElement("button");
@@ -211,13 +219,12 @@
       });
       tdActions.appendChild(removeBtn);
       tr.appendChild(tdActions);
-
+      
       return tr;
     }
-
-    // Toggle standard service button
+    
     function toggleButton(button) {
-      if (button.classList.contains("done")) {
+      if(button.classList.contains("done")) {
         button.classList.remove("done");
         button.textContent = "Mark Done";
       } else {
@@ -225,21 +232,20 @@
         button.textContent = "Done";
       }
     }
-
-    // Toggle Casting button and show/hide auth options
+    
     function toggleCasting(button, container) {
-      if (button.classList.contains("done")) {
+      if(button.classList.contains("done")) {
         button.classList.remove("done");
         button.textContent = "Mark Done";
         const authOptions = container.querySelector(".auth-options");
-        if (authOptions) container.removeChild(authOptions);
+        if(authOptions) container.removeChild(authOptions);
         const authMessage = container.querySelector(".auth-message");
-        if (authMessage) container.removeChild(authMessage);
+        if(authMessage) container.removeChild(authMessage);
       } else {
         button.classList.add("done");
         button.textContent = "Done";
         let authOptions = container.querySelector(".auth-options");
-        if (!authOptions) {
+        if(!authOptions) {
           authOptions = document.createElement("div");
           authOptions.className = "auth-options";
           authOptions.style.marginTop = "5px";
@@ -254,7 +260,7 @@
           authMessage.className = "auth-message";
           authMessage.style.marginTop = "5px";
           container.appendChild(authMessage);
-
+          
           authButton.addEventListener("click", function() {
             const row = container.parentElement.parentElement;
             const patientName = row.cells[0].textContent;
@@ -267,8 +273,67 @@
         }
       }
     }
-
-    // Event listeners for preview, manual add, and OCR upload
+    
+    // --- Column Drag and Drop ---
+    function enableColumnDragAndDrop() {
+      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      headerCells.forEach((cell, index) => {
+        if(cell.classList.contains("fixed")) {
+          cell.draggable = false;
+          cell.removeEventListener("dragstart", handleDragStart);
+          cell.removeEventListener("dragover", handleDragOver);
+          cell.removeEventListener("drop", handleDrop);
+        } else {
+          cell.draggable = true;
+          cell.addEventListener("dragstart", handleDragStart);
+          cell.addEventListener("dragover", handleDragOver);
+          cell.addEventListener("drop", handleDrop);
+        }
+      });
+    }
+    
+    let draggedColIndex = null;
+    function handleDragStart(e) {
+      draggedColIndex = e.target.cellIndex;
+      e.dataTransfer.setData("text/plain", draggedColIndex);
+    }
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    }
+    function handleDrop(e) {
+      e.preventDefault();
+      const targetColIndex = e.target.cellIndex;
+      if(e.target.classList.contains("fixed")) return;
+      const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
+      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      if(headerCells[sourceIndex].classList.contains("fixed")) return;
+      if(sourceIndex !== targetColIndex) {
+        reorderTableColumns(sourceIndex, targetColIndex);
+        enableColumnDragAndDrop();
+      }
+    }
+    function reorderTableColumns(fromIndex, toIndex) {
+      const table = document.getElementById("patientsTable");
+      const rows = table.rows;
+      for(let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.cells;
+        let cell = cells[fromIndex];
+        let adjustedIndex = toIndex;
+        if(fromIndex < toIndex) {
+          adjustedIndex--;
+        }
+        row.removeChild(cell);
+        if(adjustedIndex >= cells.length) {
+          row.appendChild(cell);
+        } else {
+          row.insertBefore(cell, cells[adjustedIndex]);
+        }
+      }
+    }
+    
+    // --- Event Listeners for Preview, Manual, OCR ---
     document.getElementById("previewButton").addEventListener("click", function() {
       const sampleNames = [
         "John Doe",
@@ -284,22 +349,22 @@
       ];
       populateTable(sampleNames);
     });
-
+    
     document.getElementById("manualAddButton").addEventListener("click", function() {
       const manualInput = document.getElementById("manualName");
       const name = manualInput.value;
-      if (name.trim() === "") {
+      if(name.trim() === "") {
         alert("Please enter a valid name.");
         return;
       }
       addRow(name);
       manualInput.value = "";
     });
-
+    
     document.getElementById("uploadButton").addEventListener("click", function() {
       const fileInput = document.getElementById("fileInput");
       const statusElem = document.getElementById("status");
-      if (fileInput.files.length === 0) {
+      if(fileInput.files.length === 0) {
         alert("Please select an image file that contains patient names (one per line).");
         return;
       }
@@ -316,33 +381,74 @@
           statusElem.textContent = "Error during OCR processing.";
         });
     });
-
-    // Export function: collect data and POST to Google Apps Script Web App.
-    function exportWithoutLogin() {
+    
+    // --- Google API Integration for Export with Login ---
+    const CLIENT_ID = "274211132378-60hhu50rqigl58dd3lph2l6ot0crdkrf.apps.googleusercontent.com";
+    const API_KEY = "AIzaSyBSsRF__f7e4LUkxO5msIAs8BC6hX92-eE";
+    const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
+    const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+    
+    function handleClientLoad() {
+      gapi.load("client:auth2", initClient);
+    }
+    
+    function initClient() {
+      gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: DISCOVERY_DOCS,
+        scope: SCOPES
+      }).then(function() {
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+        document.getElementById("exportButton").disabled = false;
+      }, function(error) {
+        console.error(JSON.stringify(error, null, 2));
+      });
+    }
+    
+    function updateSigninStatus(isSignedIn) {
+      if(isSignedIn) {
+        document.getElementById("signInButton").style.display = "none";
+        document.getElementById("signOutButton").style.display = "block";
+      } else {
+        document.getElementById("signInButton").style.display = "block";
+        document.getElementById("signOutButton").style.display = "none";
+      }
+    }
+    
+    function handleSignInClick(event) {
+      gapi.auth2.getAuthInstance().signIn();
+    }
+    
+    function handleSignOutClick(event) {
+      gapi.auth2.getAuthInstance().signOut();
+    }
+    
+    // Export using Google API (with login)
+    function exportToSheet() {
       let data = [];
-      // Get header row (skip the last "Actions" column)
+      // Header row (skip last "Actions")
       const headerCells = document.querySelectorAll("#patientsTable thead th");
       let headerRow = [];
-      for (let i = 0; i < headerCells.length - 1; i++) {
+      for(let i = 0; i < headerCells.length - 1; i++) {
         headerRow.push(headerCells[i].innerText.trim());
       }
       data.push(headerRow);
-
-      // Process each row in tbody (skip the last cell, "Actions")
+      
+      // Process table rows (skip last cell "Actions")
       const rows = document.querySelectorAll("#patientsTable tbody tr");
       rows.forEach(row => {
         let rowData = [];
         const cells = row.querySelectorAll("td");
-        for (let i = 0; i < cells.length - 1; i++) {
+        for(let i = 0; i < cells.length - 1; i++) {
           let cellValue = "";
-          // If cell contains a button (i.e., a procedure column)
           const btn = cells[i].querySelector("button");
-          if (btn) {
+          if(btn) {
             cellValue = btn.classList.contains("done") ? "1" : "0";
           } else {
-            // If cell contains a checkbox
             const checkbox = cells[i].querySelector("input[type='checkbox']");
-            if (checkbox) {
+            if(checkbox) {
               cellValue = checkbox.checked ? "Yes" : "No";
             } else {
               cellValue = cells[i].innerText.trim();
@@ -352,8 +458,66 @@
         }
         data.push(rowData);
       });
-
-      // POST the JSON data to the Google Apps Script Web App using no-cors mode.
+      
+      const spreadsheetId = "1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk";
+      const range = "Sheet1!A1";
+      
+      const params = {
+        spreadsheetId: spreadsheetId,
+        range: range,
+        valueInputOption: "USER_ENTERED"
+      };
+      
+      const valueRangeBody = {
+        "values": data
+      };
+      
+      gapi.client.sheets.spreadsheets.values.append(params, valueRangeBody).then(
+        response => {
+          console.log(response.result);
+          alert("Data exported to Google Sheets successfully!");
+        },
+        err => {
+          console.error("Error: " + err.result.error.message);
+          alert("Failed to export data: " + err.result.error.message);
+        }
+      );
+    }
+    
+    // Export without login (using fetch and no-cors)
+    function exportWithoutLogin() {
+      let data = [];
+      // Header row (skip last "Actions")
+      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      let headerRow = [];
+      for(let i = 0; i < headerCells.length - 1; i++) {
+        headerRow.push(headerCells[i].innerText.trim());
+      }
+      data.push(headerRow);
+      
+      // Table rows (skip last "Actions" cell)
+      const rows = document.querySelectorAll("#patientsTable tbody tr");
+      rows.forEach(row => {
+        let rowData = [];
+        const cells = row.querySelectorAll("td");
+        for(let i = 0; i < cells.length - 1; i++) {
+          let cellValue = "";
+          const btn = cells[i].querySelector("button");
+          if(btn) {
+            cellValue = btn.classList.contains("done") ? "1" : "0";
+          } else {
+            const checkbox = cells[i].querySelector("input[type='checkbox']");
+            if(checkbox) {
+              cellValue = checkbox.checked ? "Yes" : "No";
+            } else {
+              cellValue = cells[i].innerText.trim();
+            }
+          }
+          rowData.push(cellValue);
+        }
+        data.push(rowData);
+      });
+      
       fetch("https://script.google.com/macros/s/AKfycbzddIS9_h0H69lFwmkuroaujNiLVaqgoPWSYAHAKPFksJ1pSlLjLZoc0UE-BMDXNqav/exec", {
         method: "POST",
         mode: "no-cors",
@@ -363,7 +527,6 @@
         body: JSON.stringify(data)
       })
       .then(response => {
-        // Response is opaque in no-cors mode.
         alert("Data exported without login successfully! (Response is opaque; please verify in your spreadsheet.)");
       })
       .catch(error => {
@@ -371,66 +534,17 @@
         alert("Error exporting data: " + error);
       });
     }
-
-    // Optional: Enable column drag and drop for headers (not fully detailed here).
-    function enableColumnDragAndDrop() {
-      const headerCells = document.querySelectorAll("#patientsTable thead th");
-      headerCells.forEach((cell, index) => {
-        if (cell.classList.contains("fixed")) {
-          cell.draggable = false;
-          cell.removeEventListener("dragstart", handleDragStart);
-          cell.removeEventListener("dragover", handleDragOver);
-          cell.removeEventListener("drop", handleDrop);
-        } else {
-          cell.draggable = true;
-          cell.addEventListener("dragstart", handleDragStart);
-          cell.addEventListener("dragover", handleDragOver);
-          cell.addEventListener("drop", handleDrop);
-        }
-      });
+    
+    document.addEventListener("DOMContentLoaded", function() {
+      enableColumnDragAndDrop();
+    });
+    
+    // Load Google API client
+    function handleClientLoad() {
+      gapi.load("client:auth2", initClient);
     }
-
-    let draggedColIndex = null;
-    function handleDragStart(e) {
-      draggedColIndex = e.target.cellIndex;
-      e.dataTransfer.setData("text/plain", draggedColIndex);
-    }
-    function handleDragOver(e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-    }
-    function handleDrop(e) {
-      e.preventDefault();
-      const targetColIndex = e.target.cellIndex;
-      if (e.target.classList.contains("fixed")) return;
-      const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
-      const headerCells = document.querySelectorAll("#patientsTable thead th");
-      if (headerCells[sourceIndex].classList.contains("fixed")) return;
-      if (sourceIndex !== targetColIndex) {
-        reorderTableColumns(sourceIndex, targetColIndex);
-        enableColumnDragAndDrop();
-      }
-    }
-    function reorderTableColumns(fromIndex, toIndex) {
-      const table = document.getElementById("patientsTable");
-      const rows = table.rows;
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const cells = row.cells;
-        let cell = cells[fromIndex];
-        let adjustedIndex = toIndex;
-        if (fromIndex < toIndex) {
-          adjustedIndex--;
-        }
-        row.removeChild(cell);
-        if (adjustedIndex >= cells.length) {
-          row.appendChild(cell);
-        } else {
-          row.insertBefore(cell, cells[adjustedIndex]);
-        }
-      }
-    }
-
+    handleClientLoad();
   </script>
+  <script src="https://apis.google.com/js/api.js"></script>
 </body>
 </html>
