@@ -553,9 +553,6 @@
 
     handleClientLoad();
   </script>
- <!-- New button for exporting without login -->
-<button id="exportNoLoginButton" onclick="exportWithoutLogin()">Export without logging into your Google account</button>
-
 <script>
   function exportWithoutLogin() {
     let data = [];
@@ -593,17 +590,18 @@
       data.push(rowData);
     });
     
-    // POST the collected data as JSON to your Google Apps Script Web App.
+    // POST the collected data as JSON to your Google Apps Script Web App with no-cors mode.
     fetch("https://script.google.com/macros/s/AKfycbzddIS9_h0H69lFwmkuroaujNiLVaqgoPWSYAHAKPFksJ1pSlLjLZoc0UE-BMDXNqav/exec", {
       method: "POST",
+      mode: 'no-cors', // Bypass CORS checks
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify(data)
     })
-    .then(response => response.text())
-    .then(result => {
-      alert("Data exported without login successfully!\nResponse: " + result);
+    .then(response => {
+      // With no-cors, the response is opaque; we can't read its content.
+      alert("Data exported without login successfully! (Response is opaque, please verify in the spreadsheet.)");
     })
     .catch(error => {
       console.error("Error exporting without login:", error);
