@@ -2,11 +2,19 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Your Podiatry Tracker App</title>
+  <title>Podiatry Tracker App</title>
   <style>
     body {
       font-family: sans-serif;
       margin: 20px;
+    }
+    .section {
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    .section h2 {
+      margin-top: 0;
     }
     table {
       width: 100%;
@@ -22,10 +30,17 @@
       background-color: #f0f0f0;
       user-select: none;
     }
+    th.fixed {
+      background-color: #ddd;
+      cursor: default;
+    }
     button {
       padding: 5px 10px;
       cursor: pointer;
       margin: 5px;
+    }
+    input[type="text"] {
+      padding: 5px;
     }
     #exportInstructions {
       margin-top: 20px;
@@ -33,94 +48,299 @@
       font-size: 16px;
       color: #333;
     }
+    /* Additional styling for Casting auth options */
+    .auth-options button {
+      margin-right: 5px;
+      padding: 3px 7px;
+      font-size: 90%;
+    }
+    .auth-message {
+      margin-top: 5px;
+      font-weight: bold;
+    }
   </style>
+  <!-- Include Tesseract.js for OCR processing -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
 </head>
 <body>
-  <h1>Your Podiatry Tracker App</h1>
+  <h1>Podiatry Tracker App</h1>
   <p>
-    Use this app to track items and services dispensed. You can add patient names manually, upload names via OCR, or preview sample data. When you’re ready to export the data (with numeric values for services and checkboxes as Yes/No), click the export button below.
+    Use this app to track the items and services dispensed. You can add patient names manually, upload names via OCR, or preview sample data.
   </p>
 
-  <!-- Your table (with an Actions column) -->
+  <!-- Preview Sample Names Section -->
+  <div id="previewSection" class="section">
+    <h2>Preview Sample Names</h2>
+    <p>Click the button below to populate the table with sample patient names.</p>
+    <button id="previewButton">Preview Sample Names</button>
+  </div>
+
+  <!-- Manual Entry Section -->
+  <div id="manualSection" class="section">
+    <h2>Manually Add Patient</h2>
+    <p>Enter a patient's name and click "Add Patient" to add it to the table.</p>
+    <input type="text" id="manualName" placeholder="First Last">
+    <button id="manualAddButton">Add Patient</button>
+  </div>
+
+  <!-- OCR Upload Section -->
+  <div id="uploadSection" class="section">
+    <h2>Upload Patient Names from Image (OCR)</h2>
+    <p>Upload an image file (screenshot) that contains patient names (one per line). The OCR process will extract the names and add them to the table.</p>
+    <input type="file" id="fileInput" accept="image/*">
+    <button id="uploadButton">Upload and Process OCR</button>
+    <p id="status"></p>
+  </div>
+
+  <!-- Data Table -->
   <table id="patientsTable">
     <thead>
       <tr>
-        <th>Patient</th>
-        <th>New?</th>
-        <th>Night Splint</th>
-        <th>Cam Boots</th>
-        <th>Casting</th>
-        <th>X-Rays</th>
-        <th>Ultrasound</th>
-        <th>Routine Care</th>
-        <th>Injection</th>
-        <th>Ordering Diabetic Shoes</th>
-        <th>Nail Procedure</th>
-        <th>ASO Brace</th>
-        <th>Actions</th>
+        <th class="fixed">Patient</th>
+        <th class="fixed">New?</th>
+        <th title="Drag to rearrange" style="cursor: move;">Night Splint</th>
+        <th title="Drag to rearrange" style="cursor: move;">Cam Boots</th>
+        <th title="Drag to rearrange" style="cursor: move;">Casting</th>
+        <th title="Drag to rearrange" style="cursor: move;">X-Rays</th>
+        <th title="Drag to rearrange" style="cursor: move;">Ultrasound</th>
+        <th title="Drag to rearrange" style="cursor: move;">Routine Care</th>
+        <th title="Drag to rearrange" style="cursor: move;">Injection</th>
+        <th title="Drag to rearrange" style="cursor: move;">Ordering Diabetic Shoes</th>
+        <th title="Drag to rearrange" style="cursor: move;">Nail Procedure</th>
+        <th title="Drag to rearrange" style="cursor: move;">ASO Brace</th>
+        <th title="Drag to rearrange" style="cursor: move;">Actions</th>
       </tr>
     </thead>
     <tbody>
-      <!-- Rows will be populated dynamically by your app -->
-      <!-- For testing, you might add a sample row here -->
-      <!--
-      <tr>
-        <td>John Doe</td>
-        <td><input type="checkbox" /></td>
-        <td><button class="done">Done</button></td>
-        <td><button>Mark Done</button></td>
-        <td>
-          <div>
-            <button>Mark Done</button>
-          </div>
-        </td>
-        <td><button>Mark Done</button></td>
-        <td><button>Mark Done</button></td>
-        <td><button>Mark Done</button></td>
-        <td><button>Mark Done</button></td>
-        <td><button>Mark Done</button></td>
-        <td><button>Mark Done</button></td>
-        <td><button>Mark Done</button></td>
-        <td><button class="action-button">Remove</button></td>
-      </tr>
-      -->
+      <!-- Rows will be dynamically added here -->
     </tbody>
   </table>
 
-  <!-- Export Button -->
+  <!-- Export Button and Instructions -->
   <button id="exportNoLoginButton" onclick="exportWithoutLogin()">Export without logging into your Google account</button>
-
-  <!-- Export Instructions -->
   <div id="exportInstructions">
-    <p>Instructions: First click "Export without logging into your Google account" and then verify the updated data in your spreadsheet.</p>
+    <p>Instructions: First click "Export without logging into your Google account", then verify the updated data in your Google Sheet.</p>
   </div>
 
-  <!-- Script for exporting without login -->
+  <!-- JavaScript for App Functionality -->
   <script>
+    // Populate table with an array of names
+    function populateTable(names) {
+      const tbody = document.querySelector("#patientsTable tbody");
+      tbody.innerHTML = "";
+      names.forEach(function(name) {
+        const trimmedName = name.trim();
+        if (trimmedName !== "") {
+          tbody.appendChild(createRow(trimmedName));
+        }
+      });
+      enableColumnDragAndDrop();
+    }
+
+    // Add a single row
+    function addRow(name) {
+      const tbody = document.querySelector("#patientsTable tbody");
+      const trimmedName = name.trim();
+      if (trimmedName !== "") {
+        tbody.appendChild(createRow(trimmedName));
+        enableColumnDragAndDrop();
+      }
+    }
+
+    // Create a row element with all columns
+    function createRow(name) {
+      const tr = document.createElement("tr");
+
+      // Patient name cell
+      const tdPatient = document.createElement("td");
+      tdPatient.textContent = name;
+      tr.appendChild(tdPatient);
+
+      // New? checkbox cell
+      const tdNew = document.createElement("td");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.title = "Check if new patient";
+      tdNew.appendChild(checkbox);
+      tr.appendChild(tdNew);
+
+      // List of procedures (and special handling for Casting)
+      const procedures = [
+        "Night Splint",
+        "Cam Boots",
+        "Casting",
+        "X-Rays",
+        "Ultrasound",
+        "Routine Care",
+        "Injection",
+        "Ordering Diabetic Shoes",
+        "Nail Procedure",
+        "ASO Brace"
+      ];
+      procedures.forEach(function(proc) {
+        const td = document.createElement("td");
+        if (proc === "Casting") {
+          // Special handling for Casting with auth options
+          const container = document.createElement("div");
+          const castButton = document.createElement("button");
+          castButton.textContent = "Mark Done";
+          castButton.addEventListener("click", function() {
+            toggleCasting(castButton, container);
+          });
+          container.appendChild(castButton);
+          td.appendChild(container);
+        } else {
+          const btn = document.createElement("button");
+          btn.textContent = "Mark Done";
+          btn.dataset.service = proc;
+          btn.addEventListener("click", function() {
+            toggleButton(btn);
+          });
+          td.appendChild(btn);
+        }
+        tr.appendChild(td);
+      });
+
+      // Actions column with Remove button
+      const tdActions = document.createElement("td");
+      const removeBtn = document.createElement("button");
+      removeBtn.textContent = "Remove";
+      removeBtn.classList.add("action-button");
+      removeBtn.addEventListener("click", function() {
+        tr.remove();
+      });
+      tdActions.appendChild(removeBtn);
+      tr.appendChild(tdActions);
+
+      return tr;
+    }
+
+    // Toggle standard service button
+    function toggleButton(button) {
+      if (button.classList.contains("done")) {
+        button.classList.remove("done");
+        button.textContent = "Mark Done";
+      } else {
+        button.classList.add("done");
+        button.textContent = "Done";
+      }
+    }
+
+    // Toggle Casting button and show/hide auth options
+    function toggleCasting(button, container) {
+      if (button.classList.contains("done")) {
+        button.classList.remove("done");
+        button.textContent = "Mark Done";
+        const authOptions = container.querySelector(".auth-options");
+        if (authOptions) container.removeChild(authOptions);
+        const authMessage = container.querySelector(".auth-message");
+        if (authMessage) container.removeChild(authMessage);
+      } else {
+        button.classList.add("done");
+        button.textContent = "Done";
+        let authOptions = container.querySelector(".auth-options");
+        if (!authOptions) {
+          authOptions = document.createElement("div");
+          authOptions.className = "auth-options";
+          authOptions.style.marginTop = "5px";
+          const authButton = document.createElement("button");
+          authButton.textContent = "Auth will be sent";
+          const authNotNeededButton = document.createElement("button");
+          authNotNeededButton.textContent = "Auth not needed";
+          authOptions.appendChild(authButton);
+          authOptions.appendChild(authNotNeededButton);
+          container.appendChild(authOptions);
+          const authMessage = document.createElement("div");
+          authMessage.className = "auth-message";
+          authMessage.style.marginTop = "5px";
+          container.appendChild(authMessage);
+
+          authButton.addEventListener("click", function() {
+            const row = container.parentElement.parentElement;
+            const patientName = row.cells[0].textContent;
+            authMessage.textContent = "L3000 requested for " + patientName + ". Please copy and paste and send to Concepcion";
+          });
+          authNotNeededButton.addEventListener("click", function() {
+            const authMessage = container.querySelector(".auth-message");
+            authMessage.textContent = "";
+          });
+        }
+      }
+    }
+
+    // Event listeners for preview, manual add, and OCR upload
+    document.getElementById("previewButton").addEventListener("click", function() {
+      const sampleNames = [
+        "John Doe",
+        "Jane Smith",
+        "Alice Johnson",
+        "Bob Brown",
+        "Charlie Davis",
+        "Emily Wilson",
+        "Frank Miller",
+        "Grace Lee",
+        "Hannah Taylor",
+        "Ian Clark"
+      ];
+      populateTable(sampleNames);
+    });
+
+    document.getElementById("manualAddButton").addEventListener("click", function() {
+      const manualInput = document.getElementById("manualName");
+      const name = manualInput.value;
+      if (name.trim() === "") {
+        alert("Please enter a valid name.");
+        return;
+      }
+      addRow(name);
+      manualInput.value = "";
+    });
+
+    document.getElementById("uploadButton").addEventListener("click", function() {
+      const fileInput = document.getElementById("fileInput");
+      const statusElem = document.getElementById("status");
+      if (fileInput.files.length === 0) {
+        alert("Please select an image file that contains patient names (one per line).");
+        return;
+      }
+      const file = fileInput.files[0];
+      statusElem.textContent = "Processing OCR, please wait...";
+      Tesseract.recognize(file, "eng", { logger: m => console.log(m) })
+        .then(({ data: { text } }) => {
+          statusElem.textContent = "OCR processing complete.";
+          const names = text.split(/\r?\n/);
+          populateTable(names);
+        })
+        .catch(err => {
+          console.error(err);
+          statusElem.textContent = "Error during OCR processing.";
+        });
+    });
+
+    // Export function: collect data and POST to Google Apps Script Web App.
     function exportWithoutLogin() {
       let data = [];
-      
-      // Collect header row (skip the last "Actions" column)
+      // Get header row (skip the last "Actions" column)
       const headerCells = document.querySelectorAll("#patientsTable thead th");
       let headerRow = [];
       for (let i = 0; i < headerCells.length - 1; i++) {
         headerRow.push(headerCells[i].innerText.trim());
       }
       data.push(headerRow);
-      
-      // Collect each row from the table body (skip the last "Actions" cell)
+
+      // Process each row in tbody (skip the last cell, "Actions")
       const rows = document.querySelectorAll("#patientsTable tbody tr");
       rows.forEach(row => {
         let rowData = [];
         const cells = row.querySelectorAll("td");
         for (let i = 0; i < cells.length - 1; i++) {
           let cellValue = "";
-          // If the cell contains a button (service column), export "1" if done, "0" if not.
+          // If cell contains a button (i.e., a procedure column)
           const btn = cells[i].querySelector("button");
           if (btn) {
             cellValue = btn.classList.contains("done") ? "1" : "0";
           } else {
-            // If the cell contains a checkbox, export "Yes" if checked, "No" if not.
+            // If cell contains a checkbox
             const checkbox = cells[i].querySelector("input[type='checkbox']");
             if (checkbox) {
               cellValue = checkbox.checked ? "Yes" : "No";
@@ -132,18 +352,18 @@
         }
         data.push(rowData);
       });
-      
-      // Send the data as JSON via POST to your Google Apps Script web app URL using no-cors mode.
+
+      // POST the JSON data to the Google Apps Script Web App using no-cors mode.
       fetch("https://script.google.com/macros/s/AKfycbzddIS9_h0H69lFwmkuroaujNiLVaqgoPWSYAHAKPFksJ1pSlLjLZoc0UE-BMDXNqav/exec", {
         method: "POST",
-        mode: 'no-cors', // Bypass CORS restrictions; response will be opaque.
+        mode: "no-cors",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(data)
       })
       .then(response => {
-        // With no-cors, the response is opaque; we cannot read its content.
+        // Response is opaque in no-cors mode.
         alert("Data exported without login successfully! (Response is opaque; please verify in your spreadsheet.)");
       })
       .catch(error => {
@@ -151,6 +371,66 @@
         alert("Error exporting data: " + error);
       });
     }
+
+    // Optional: Enable column drag and drop for headers (not fully detailed here).
+    function enableColumnDragAndDrop() {
+      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      headerCells.forEach((cell, index) => {
+        if (cell.classList.contains("fixed")) {
+          cell.draggable = false;
+          cell.removeEventListener("dragstart", handleDragStart);
+          cell.removeEventListener("dragover", handleDragOver);
+          cell.removeEventListener("drop", handleDrop);
+        } else {
+          cell.draggable = true;
+          cell.addEventListener("dragstart", handleDragStart);
+          cell.addEventListener("dragover", handleDragOver);
+          cell.addEventListener("drop", handleDrop);
+        }
+      });
+    }
+
+    let draggedColIndex = null;
+    function handleDragStart(e) {
+      draggedColIndex = e.target.cellIndex;
+      e.dataTransfer.setData("text/plain", draggedColIndex);
+    }
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    }
+    function handleDrop(e) {
+      e.preventDefault();
+      const targetColIndex = e.target.cellIndex;
+      if (e.target.classList.contains("fixed")) return;
+      const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
+      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      if (headerCells[sourceIndex].classList.contains("fixed")) return;
+      if (sourceIndex !== targetColIndex) {
+        reorderTableColumns(sourceIndex, targetColIndex);
+        enableColumnDragAndDrop();
+      }
+    }
+    function reorderTableColumns(fromIndex, toIndex) {
+      const table = document.getElementById("patientsTable");
+      const rows = table.rows;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.cells;
+        let cell = cells[fromIndex];
+        let adjustedIndex = toIndex;
+        if (fromIndex < toIndex) {
+          adjustedIndex--;
+        }
+        row.removeChild(cell);
+        if (adjustedIndex >= cells.length) {
+          row.appendChild(cell);
+        } else {
+          row.insertBefore(cell, cells[adjustedIndex]);
+        }
+      }
+    }
+
   </script>
 </body>
 </html>
