@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Podiatry Service Tracker - Test, Manage & Reorder Columns</title>
+  <title>Podiatry Service Tracker - Inventory, Casting Auth & Export</title>
   <style>
     body {
       font-family: sans-serif;
@@ -42,23 +42,38 @@
       background-color: #4CAF50;
       color: white;
     }
-    .action-button {
-      background-color: #f44336;
-      color: white;
-      border: none;
-    }
     input[type="text"] {
       padding: 5px;
     }
+    #inventoryDisplay {
+      margin-top: 30px;
+      padding: 10px;
+      border: 2px solid #888;
+    }
+    .auth-options button {
+      margin-right: 5px;
+      padding: 3px 7px;
+      font-size: 90%;
+    }
+    .auth-message {
+      margin-top: 5px;
+      font-weight: bold;
+    }
+    #exportInstructions {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 16px;
+      color: #333;
+    }
   </style>
-  <!-- Include Tesseract.js from CDN for OCR -->
+  <!-- Include Tesseract.js for OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
 </head>
 <body>
   <h1>Podiatry Service Tracker</h1>
   <p>
-    Test the app with sample names, add names manually, or upload an image file (screenshot) containing names (one per line).  
-    Use the "New?" checkbox to mark a patient as new, and the "Remove" button to delete a row.
+    Test the app with sample names, add names manually, or upload an image (screenshot) containing patient names (one per line).  
+    Use the "New?" checkbox to mark a patient as new.
   </p>
 
   <!-- Preview Section -->
@@ -92,14 +107,12 @@
     Hint: Drag and drop the procedure columns (except Patient and New?) to rearrange their order.
   </p>
 
-  <!-- Patients Table -->
+  <!-- Patients Table (with Actions column) -->
   <table id="patientsTable">
     <thead>
       <tr>
-        <!-- Fixed columns: Patient and New? -->
         <th class="fixed">Patient</th>
         <th class="fixed">New?</th>
-        <!-- Draggable columns: Procedures and Actions -->
         <th title="Drag to rearrange" style="cursor: move;">Night Splint</th>
         <th title="Drag to rearrange" style="cursor: move;">Cam Boots</th>
         <th title="Drag to rearrange" style="cursor: move;">Casting</th>
@@ -114,44 +127,136 @@
       </tr>
     </thead>
     <tbody>
-      <!-- Rows will be added here -->
+      <!-- Rows will be added dynamically -->
     </tbody>
   </table>
 
-  <script>
-    // ***********************
-    // Utility Functions
-    // ***********************
+  <!-- Inventory Display Section -->
+  <div id="inventoryDisplay">
+    <h2>Inventory Tally</h2>
+  </div>
 
-    // Toggle a procedure button's state between "Mark Done" and "Done"
+  <!-- Google API Sign In/Out, Export, and Open Spreadsheet Buttons -->
+  <button id="signInButton" onclick="handleSignInClick()">Sign In with Google</button>
+  <button id="signOutButton" onclick="handleSignOutClick()" style="display: none;">Sign Out</button>
+  <button id="exportButton" onclick="exportToSheet()" disabled>Export to Google Sheets</button>
+  <button id="openSheetButton" onclick="window.location.href='https://docs.google.com/spreadsheets/d/1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk/edit?usp=sharing'">Open Spreadsheet</button>
+
+  <!-- Export Instructions -->
+  <div id="exportInstructions">
+    <p>Instructions: First click "Export to Google Sheets", then click "Open Spreadsheet" to view the updated data.</p>
+  </div>
+
+  <!-- Load the Google API Client Library -->
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script>
+    // Global inventory object for services (Casting is not tracked)
+    const inventory = {
+      "Night Splint": 10,
+      "Cam Boots": 10,
+      // Casting is not tracked, so not included.
+      "X-Rays": 10,
+      "Ultrasound": 10,
+      "Routine Care": 10,
+      "Injection": 10,
+      "Ordering Diabetic Shoes": 10,
+      "Nail Procedure": 10,
+      "ASO Brace": 10
+    };
+
+    function updateInventoryDisplay() {
+      const display = document.getElementById('inventoryDisplay');
+      display.innerHTML = '<h2>Inventory Tally</h2>';
+      for (const [service, count] of Object.entries(inventory)) {
+        const serviceDiv = document.createElement('div');
+        serviceDiv.style.margin = '4px 0';
+        serviceDiv.textContent = service + ": " + count;
+        if (count <= 5) {
+          serviceDiv.style.fontSize = '20px';
+          serviceDiv.style.color = 'red';
+          serviceDiv.style.fontWeight = 'bold';
+          serviceDiv.textContent += " - LOW STOCK!";
+        } else {
+          serviceDiv.style.fontSize = '16px';
+          serviceDiv.style.color = '#000';
+        }
+        display.appendChild(serviceDiv);
+      }
+    }
+
+    function updateInventory(service, change) {
+      if (inventory.hasOwnProperty(service)) {
+        inventory[service] += change;
+        if (inventory[service] < 0) inventory[service] = 0;
+        updateInventoryDisplay();
+      }
+    }
+
+    // Toggle button for standard service columns (non-Casting)
     function toggleButton(button) {
+      const service = button.dataset.service;
       if (button.classList.contains('done')) {
         button.classList.remove('done');
         button.textContent = 'Mark Done';
+        updateInventory(service, +1);
       } else {
         button.classList.add('done');
         button.textContent = 'Done';
+        updateInventory(service, -1);
       }
     }
 
-    // Remove a row from the table
-    function removeRow(button) {
-      const row = button.closest('tr');
-      if (row) {
-        row.remove();
+    // Special handling for Casting column (no inventory tracking)
+    function toggleCasting(button, container) {
+      if (button.classList.contains('done')) {
+        button.classList.remove('done');
+        button.textContent = 'Mark Done';
+        const authOptions = container.querySelector('.auth-options');
+        if (authOptions) container.removeChild(authOptions);
+        const authMessage = container.querySelector('.auth-message');
+        if (authMessage) container.removeChild(authMessage);
+      } else {
+        button.classList.add('done');
+        button.textContent = 'Done';
+        let authOptions = container.querySelector('.auth-options');
+        if (!authOptions) {
+          authOptions = document.createElement('div');
+          authOptions.className = 'auth-options';
+          authOptions.style.marginTop = '5px';
+          const authButton = document.createElement('button');
+          authButton.textContent = "Auth will be sent";
+          const authNotNeededButton = document.createElement('button');
+          authNotNeededButton.textContent = "Auth not needed";
+          authOptions.appendChild(authButton);
+          authOptions.appendChild(authNotNeededButton);
+          container.appendChild(authOptions);
+          const authMessage = document.createElement('div');
+          authMessage.className = 'auth-message';
+          authMessage.style.marginTop = '5px';
+          container.appendChild(authMessage);
+
+          authButton.addEventListener('click', function() {
+            const row = container.parentElement.parentElement;
+            const patientName = row.cells[0].textContent;
+            authMessage.textContent = "L3000 requested for " + patientName + ". Please copy and paste and send to Concepcion";
+          });
+          authNotNeededButton.addEventListener('click', function() {
+            authMessage.textContent = "";
+          });
+        }
       }
     }
 
-    // Create a table row for a given patient name
+    // Create a table row for a given patient name (including Actions column)
     function createRow(name) {
       const tr = document.createElement('tr');
 
-      // Patient Name Cell
+      // Patient name cell.
       const nameTd = document.createElement('td');
       nameTd.textContent = name;
       tr.appendChild(nameTd);
 
-      // New Patient Checkbox Cell
+      // New? checkbox cell.
       const newTd = document.createElement('td');
       const newCheckbox = document.createElement('input');
       newCheckbox.type = 'checkbox';
@@ -159,7 +264,7 @@
       newTd.appendChild(newCheckbox);
       tr.appendChild(newTd);
 
-      // List of procedures
+      // List of procedure columns.
       const procedures = [
         'Night Splint', 
         'Cam Boots', 
@@ -172,42 +277,52 @@
         'Nail Procedure',
         'ASO Brace'
       ];
-      procedures.forEach(() => {
+
+      procedures.forEach(serviceName => {
         const td = document.createElement('td');
-        const btn = document.createElement('button');
-        btn.textContent = 'Mark Done';
-        btn.addEventListener('click', () => toggleButton(btn));
-        td.appendChild(btn);
+        if (serviceName === "Casting") {
+          const container = document.createElement('div');
+          const castButton = document.createElement('button');
+          castButton.textContent = 'Mark Done';
+          castButton.addEventListener('click', function() {
+            toggleCasting(castButton, container);
+          });
+          container.appendChild(castButton);
+          td.appendChild(container);
+        } else {
+          const btn = document.createElement('button');
+          btn.textContent = 'Mark Done';
+          btn.dataset.service = serviceName;
+          btn.addEventListener('click', () => toggleButton(btn));
+          td.appendChild(btn);
+        }
         tr.appendChild(td);
       });
 
-      // Actions Cell: Remove button
+      // Actions column with Remove button.
       const actionsTd = document.createElement('td');
       const removeBtn = document.createElement('button');
       removeBtn.textContent = 'Remove';
       removeBtn.classList.add('action-button');
-      removeBtn.addEventListener('click', () => removeRow(removeBtn));
+      removeBtn.addEventListener('click', () => tr.remove());
       actionsTd.appendChild(removeBtn);
       tr.appendChild(actionsTd);
 
       return tr;
     }
 
-    // Populate the table with an array of names (clears existing rows)
     function populateTable(names) {
       const tbody = document.querySelector('#patientsTable tbody');
-      tbody.innerHTML = ''; // Clear existing rows
+      tbody.innerHTML = '';
       names.forEach(name => {
         const trimmedName = name.trim();
         if (trimmedName !== '') {
           tbody.appendChild(createRow(trimmedName));
         }
       });
-      // Re-enable column drag & drop after table update
       enableColumnDragAndDrop();
     }
 
-    // Append a single row (for manual additions) without clearing the table
     function addRow(name) {
       const tbody = document.querySelector('#patientsTable tbody');
       const trimmedName = name.trim();
@@ -217,11 +332,6 @@
       }
     }
 
-    // ***********************
-    // OCR & Button Event Listeners
-    // ***********************
-
-    // Preview Sample Names button
     document.getElementById('previewButton').addEventListener('click', function() {
       const sampleNames = [
         'John Doe',
@@ -238,7 +348,6 @@
       populateTable(sampleNames);
     });
 
-    // Manual Add Patient button
     document.getElementById('manualAddButton').addEventListener('click', function() {
       const manualInput = document.getElementById('manualName');
       const name = manualInput.value;
@@ -247,10 +356,9 @@
         return;
       }
       addRow(name);
-      manualInput.value = ''; // Clear the input field
+      manualInput.value = '';
     });
 
-    // Upload and Process OCR button
     document.getElementById('uploadButton').addEventListener('click', function() {
       const fileInput = document.getElementById('fileInput');
       const statusElem = document.getElementById('status');
@@ -260,7 +368,6 @@
       }
       const file = fileInput.files[0];
       statusElem.textContent = 'Processing OCR, please wait...';
-
       Tesseract.recognize(
         file,
         'eng',
@@ -268,7 +375,6 @@
       )
       .then(({ data: { text } }) => {
         statusElem.textContent = 'OCR processing complete.';
-        // Split OCR result by newline (assuming one name per line)
         const names = text.split(/\r?\n/);
         populateTable(names);
       })
@@ -278,15 +384,109 @@
       });
     });
 
-    // ***********************
-    // Column Drag & Drop (Reordering)
-    // ***********************
+    // Google API Integration
+    const CLIENT_ID = '274211132378-60hhu50rqigl58dd3lph2l6ot0crdkrf.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyBSsRF__f7e4LUkxO5msIAs8BC6hX92-eE';
+    const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
+    const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
 
-    // Only allow reordering for header cells that are not fixed (i.e. not "Patient" or "New?")
+    function handleClientLoad() {
+      gapi.load('client:auth2', initClient);
+    }
+
+    function initClient() {
+      gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: DISCOVERY_DOCS,
+        scope: SCOPES
+      }).then(function () {
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+        document.getElementById('exportButton').disabled = false;
+      }, function(error) {
+        console.error(JSON.stringify(error, null, 2));
+      });
+    }
+
+    function updateSigninStatus(isSignedIn) {
+      if (isSignedIn) {
+        document.getElementById('signInButton').style.display = 'none';
+        document.getElementById('signOutButton').style.display = 'block';
+      } else {
+        document.getElementById('signInButton').style.display = 'block';
+        document.getElementById('signOutButton').style.display = 'none';
+      }
+    }
+
+    function handleSignInClick(event) {
+      gapi.auth2.getAuthInstance().signIn();
+    }
+
+    function handleSignOutClick(event) {
+      gapi.auth2.getAuthInstance().signOut();
+    }
+
+    // Export function: add header row and process each row while skipping the last "Actions" column.
+    function exportToSheet() {
+      let data = [];
+      // Get headers but skip the last header (Actions).
+      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      let headerRow = [];
+      for (let i = 0; i < headerCells.length - 1; i++) {
+        headerRow.push(headerCells[i].innerText.trim());
+      }
+      data.push(headerRow);
+
+      // Process each row in tbody, skipping the last cell (Actions).
+      const rows = document.querySelectorAll("#patientsTable tbody tr");
+      rows.forEach(row => {
+        let rowData = [];
+        const cells = row.querySelectorAll("td");
+        for (let i = 0; i < cells.length - 1; i++) {
+          let cellText = "";
+          // If the cell contains a button (i.e. a procedure column)
+          const btn = cells[i].querySelector("button");
+          if (btn) {
+            rowData.push(btn.classList.contains('done') ? "1" : "0");
+          } else {
+            // If cell contains a checkbox.
+            const checkbox = cells[i].querySelector("input[type='checkbox']");
+            if (checkbox) {
+              rowData.push(checkbox.checked ? "Yes" : "No");
+            } else {
+              rowData.push(cells[i].innerText.trim());
+            }
+          }
+        }
+        data.push(rowData);
+      });
+
+      const spreadsheetId = '1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk';
+      const range = 'Sheet1!A1';
+
+      const params = {
+        spreadsheetId: spreadsheetId,
+        range: range,
+        valueInputOption: 'USER_ENTERED'
+      };
+
+      const valueRangeBody = {
+        "values": data
+      };
+
+      gapi.client.sheets.spreadsheets.values.append(params, valueRangeBody).then((response) => {
+        console.log(response.result);
+        alert("Data exported to Google Sheets successfully!");
+      }, (err) => {
+        console.error("Error: " + err.result.error.message);
+        alert("Failed to export data: " + err.result.error.message);
+      });
+    }
+
     function enableColumnDragAndDrop() {
       const headerCells = document.querySelectorAll('#patientsTable thead th');
       headerCells.forEach((cell, index) => {
-        // Check if this column is fixed (by class)
         if (cell.classList.contains('fixed')) {
           cell.draggable = false;
           cell.removeEventListener('dragstart', handleDragStart);
@@ -316,33 +516,23 @@
     function handleDrop(e) {
       e.preventDefault();
       const targetColIndex = e.target.cellIndex;
-      // If target header is fixed, do nothing.
-      if (e.target.classList.contains('fixed')) {
-        return;
-      }
+      if (e.target.classList.contains('fixed')) return;
       const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
-      // Do nothing if source is fixed (shouldn't happen)
       const headerCells = document.querySelectorAll('#patientsTable thead th');
-      if (headerCells[sourceIndex].classList.contains('fixed')) {
-        return;
-      }
+      if (headerCells[sourceIndex].classList.contains('fixed')) return;
       if (sourceIndex !== targetColIndex) {
         reorderTableColumns(sourceIndex, targetColIndex);
-        // Reinitialize drag & drop handlers after reordering
         enableColumnDragAndDrop();
       }
     }
 
-    // Reorder columns in every row (both header and body)
     function reorderTableColumns(fromIndex, toIndex) {
       const table = document.getElementById("patientsTable");
       const rows = table.rows;
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const cells = row.cells;
-        // Get the cell to move
         let cell = cells[fromIndex];
-        // Adjust target index if moving rightward
         let adjustedIndex = toIndex;
         if (fromIndex < toIndex) {
           adjustedIndex--;
@@ -356,121 +546,12 @@
       }
     }
 
-    // Initialize drag & drop functionality on page load
     document.addEventListener("DOMContentLoaded", function() {
       enableColumnDragAndDrop();
+      updateInventoryDisplay();
     });
+
+    handleClientLoad();
   </script>
-<!-- Load the Google API Client Library -->
-<script src="https://apis.google.com/js/api.js"></script>
-<script>
-  // Your OAuth2 client id and API key
-  const CLIENT_ID = '274211132378-60hhu50rqigl58dd3lph2l6ot0crdkrf.apps.googleusercontent.com';
-  const API_KEY = 'AIzaSyBSsRF__f7e4LUkxO5msIAs8BC6hX92-eE';
-  
-  // Discovery document URL for the Sheets API
-  const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
-  
-  // Authorization scopes required by the API
-  const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
-
-  // Load and initialize the Google API client
-  function handleClientLoad() {
-    gapi.load('client:auth2', initClient);
-  }
-
-  function initClient() {
-    gapi.client.init({
-      apiKey: API_KEY,
-      clientId: CLIENT_ID,
-      discoveryDocs: DISCOVERY_DOCS,
-      scope: SCOPES
-    }).then(function () {
-      // Listen for sign-in state changes
-      gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-      // Update UI based on initial sign-in state
-      updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-      document.getElementById('exportButton').disabled = false;
-    }, function(error) {
-      console.error(JSON.stringify(error, null, 2));
-    });
-  }
-
-  function updateSigninStatus(isSignedIn) {
-    if (isSignedIn) {
-      document.getElementById('signInButton').style.display = 'none';
-      document.getElementById('signOutButton').style.display = 'block';
-    } else {
-      document.getElementById('signInButton').style.display = 'block';
-      document.getElementById('signOutButton').style.display = 'none';
-    }
-  }
-
-  function handleSignInClick(event) {
-    gapi.auth2.getAuthInstance().signIn();
-  }
-
-  function handleSignOutClick(event) {
-    gapi.auth2.getAuthInstance().signOut();
-  }
-
-  // Collect data from the table and export it to Google Sheets.
-  function exportToSheet() {
-    let data = [];
-    // Add header row from the table header.
-    let headerRow = [];
-    const headerCells = document.querySelectorAll("#patientsTable thead th");
-    headerCells.forEach(cell => {
-      headerRow.push(cell.innerText.trim());
-    });
-    data.push(headerRow);
-    
-    // Gather rows from the table body.
-    const rows = document.querySelectorAll("#patientsTable tbody tr");
-    rows.forEach(row => {
-      let rowData = [];
-      row.querySelectorAll("td").forEach(cell => {
-        let cellText = cell.innerText.trim();
-        // Replace cells with exactly "Mark Done" with a blank.
-        if(cellText === "Mark Done") {
-          cellText = "";
-        }
-        rowData.push(cellText);
-      });
-      data.push(rowData);
-    });
-    
-    // Use your spreadsheet ID here.
-    const spreadsheetId = '1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk';
-    const range = 'Sheet1!A1'; // Adjust range as needed.
-
-    const params = {
-      spreadsheetId: spreadsheetId,
-      range: range,
-      valueInputOption: 'USER_ENTERED'
-    };
-
-    const valueRangeBody = {
-      "values": data
-    };
-
-    gapi.client.sheets.spreadsheets.values.append(params, valueRangeBody).then((response) => {
-      console.log(response.result);
-      alert("Data exported to Google Sheets successfully!");
-    }, (err) => {
-      console.error("Error: " + err.result.error.message);
-      alert("Failed to export data: " + err.result.error.message);
-    });
-  }
-</script>
-
-<!-- Buttons for Google Sign In/Out, Export, and Open Spreadsheet -->
-<button id="signInButton" onclick="handleSignInClick()">Sign In with Google</button>
-<button id="signOutButton" onclick="handleSignOutClick()" style="display: none;">Sign Out</button>
-<button id="exportButton" onclick="exportToSheet()" disabled>Export to Google Sheets</button>
-<button id="openSheetButton" onclick="window.location.href='https://docs.google.com/spreadsheets/d/1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk/edit?usp=sharing'">Open Spreadsheet</button>
-
-<!-- Initialize the Google API client -->
-<script>handleClientLoad();</script>
-
+</body>
 </html>
