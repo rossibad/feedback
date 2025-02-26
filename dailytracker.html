@@ -4,16 +4,44 @@
   <meta charset="UTF-8">
   <title>Your Podiatry Tracker App</title>
   <style>
-    /* Basic styling */
-    body { font-family: sans-serif; margin: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    table, th, td { border: 1px solid #444; padding: 8px; text-align: center; }
-    th { background-color: #f0f0f0; user-select: none; }
-    button { padding: 5px 10px; cursor: pointer; margin: 5px; }
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f0f0f0;
+      user-select: none;
+    }
+    button {
+      padding: 5px 10px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    #exportInstructions {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 16px;
+      color: #333;
+    }
   </style>
 </head>
 <body>
-  <!-- Your existing content (table, preview, manual add, etc.) goes here -->
+  <h1>Your Podiatry Tracker App</h1>
+  <p>
+    Use this app to track items and services dispensed. You can add patient names manually, upload names via OCR, or preview sample data. When you’re ready to export the data (with numeric values for services and checkboxes as Yes/No), click the export button below.
+  </p>
+
+  <!-- Your table (with an Actions column) -->
   <table id="patientsTable">
     <thead>
       <tr>
@@ -33,39 +61,66 @@
       </tr>
     </thead>
     <tbody>
-      <!-- Rows are populated dynamically -->
+      <!-- Rows will be populated dynamically by your app -->
+      <!-- For testing, you might add a sample row here -->
+      <!--
+      <tr>
+        <td>John Doe</td>
+        <td><input type="checkbox" /></td>
+        <td><button class="done">Done</button></td>
+        <td><button>Mark Done</button></td>
+        <td>
+          <div>
+            <button>Mark Done</button>
+          </div>
+        </td>
+        <td><button>Mark Done</button></td>
+        <td><button>Mark Done</button></td>
+        <td><button>Mark Done</button></td>
+        <td><button>Mark Done</button></td>
+        <td><button>Mark Done</button></td>
+        <td><button>Mark Done</button></td>
+        <td><button>Mark Done</button></td>
+        <td><button class="action-button">Remove</button></td>
+      </tr>
+      -->
     </tbody>
   </table>
 
   <!-- Export Button -->
   <button id="exportNoLoginButton" onclick="exportWithoutLogin()">Export without logging into your Google account</button>
 
+  <!-- Export Instructions -->
+  <div id="exportInstructions">
+    <p>Instructions: First click "Export without logging into your Google account" and then verify the updated data in your spreadsheet.</p>
+  </div>
+
   <!-- Script for exporting without login -->
   <script>
     function exportWithoutLogin() {
       let data = [];
       
-      // Collect header row (skipping the "Actions" column)
+      // Collect header row (skip the last "Actions" column)
       const headerCells = document.querySelectorAll("#patientsTable thead th");
       let headerRow = [];
-      for (let i = 0; i < headerCells.length - 1; i++) { // assuming last column is "Actions"
+      for (let i = 0; i < headerCells.length - 1; i++) {
         headerRow.push(headerCells[i].innerText.trim());
       }
       data.push(headerRow);
       
-      // Collect each row from the table body (skipping the "Actions" column)
+      // Collect each row from the table body (skip the last "Actions" cell)
       const rows = document.querySelectorAll("#patientsTable tbody tr");
       rows.forEach(row => {
         let rowData = [];
         const cells = row.querySelectorAll("td");
         for (let i = 0; i < cells.length - 1; i++) {
           let cellValue = "";
-          // If cell contains a button (for a procedure), export "1" if done, "0" if not.
+          // If the cell contains a button (service column), export "1" if done, "0" if not.
           const btn = cells[i].querySelector("button");
           if (btn) {
             cellValue = btn.classList.contains("done") ? "1" : "0";
           } else {
-            // If cell contains a checkbox, export "Yes" or "No"
+            // If the cell contains a checkbox, export "Yes" if checked, "No" if not.
             const checkbox = cells[i].querySelector("input[type='checkbox']");
             if (checkbox) {
               cellValue = checkbox.checked ? "Yes" : "No";
@@ -78,17 +133,17 @@
         data.push(rowData);
       });
       
-      // POST the data as JSON to your Google Apps Script Web App URL with no-cors mode.
+      // Send the data as JSON via POST to your Google Apps Script web app URL using no-cors mode.
       fetch("https://script.google.com/macros/s/AKfycbzddIS9_h0H69lFwmkuroaujNiLVaqgoPWSYAHAKPFksJ1pSlLjLZoc0UE-BMDXNqav/exec", {
         method: "POST",
-        mode: 'no-cors', // Bypass CORS restrictions
+        mode: 'no-cors', // Bypass CORS restrictions; response will be opaque.
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(data)
       })
       .then(response => {
-        // With no-cors, the response is opaque.
+        // With no-cors, the response is opaque; we cannot read its content.
         alert("Data exported without login successfully! (Response is opaque; please verify in your spreadsheet.)");
       })
       .catch(error => {
