@@ -361,11 +361,10 @@
       enableColumnDragAndDrop();
     });
   </script>
-</body>
-  <!-- Load the Google API Client Library -->
+<!-- Load the Google API Client Library -->
 <script src="https://apis.google.com/js/api.js"></script>
 <script>
-  // Your OAuth2 client id and API key (provided)
+  // Your OAuth2 client id and API key
   const CLIENT_ID = '274211132378-60hhu50rqigl58dd3lph2l6ot0crdkrf.apps.googleusercontent.com';
   const API_KEY = 'AIzaSyBSsRF__f7e4LUkxO5msIAs8BC6hX92-eE';
   
@@ -415,21 +414,35 @@
     gapi.auth2.getAuthInstance().signOut();
   }
 
-  // Collect data from the table and export it to Google Sheets
+  // Collect data from the table and export it to Google Sheets.
   function exportToSheet() {
     let data = [];
-    // Gather rows from the patients table
+    // Add header row from the table header.
+    let headerRow = [];
+    const headerCells = document.querySelectorAll("#patientsTable thead th");
+    headerCells.forEach(cell => {
+      headerRow.push(cell.innerText.trim());
+    });
+    data.push(headerRow);
+    
+    // Gather rows from the table body.
     const rows = document.querySelectorAll("#patientsTable tbody tr");
     rows.forEach(row => {
       let rowData = [];
       row.querySelectorAll("td").forEach(cell => {
-        rowData.push(cell.innerText);
+        let cellText = cell.innerText.trim();
+        // Replace cells with exactly "Mark Done" with a blank.
+        if(cellText === "Mark Done") {
+          cellText = "";
+        }
+        rowData.push(cellText);
       });
       data.push(rowData);
     });
-    // Replace with your actual spreadsheet ID
+    
+    // Use your spreadsheet ID here.
     const spreadsheetId = '1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk';
-    const range = 'Sheet1!A1'; // Change the range as needed
+    const range = 'Sheet1!A1'; // Adjust range as needed.
 
     const params = {
       spreadsheetId: spreadsheetId,
@@ -451,10 +464,11 @@
   }
 </script>
 
-<!-- Buttons for Google Sign In/Out and Export -->
+<!-- Buttons for Google Sign In/Out, Export, and Open Spreadsheet -->
 <button id="signInButton" onclick="handleSignInClick()">Sign In with Google</button>
 <button id="signOutButton" onclick="handleSignOutClick()" style="display: none;">Sign Out</button>
 <button id="exportButton" onclick="exportToSheet()" disabled>Export to Google Sheets</button>
+<button id="openSheetButton" onclick="window.location.href='https://docs.google.com/spreadsheets/d/1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk/edit?usp=sharing'">Open Spreadsheet</button>
 
 <!-- Initialize the Google API client -->
 <script>handleClientLoad();</script>
