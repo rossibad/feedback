@@ -553,5 +553,65 @@
 
     handleClientLoad();
   </script>
+  <!-- New button for exporting without login -->
+<button id="exportNoLoginButton" onclick="exportWithoutLogin()">Export without logging into your Google account</button>
+
+<script>
+  // Function to export table data via POST to the Google Apps Script web app.
+  function exportWithoutLogin() {
+    let data = [];
+    
+    // Collect header row from the table (skip the "Actions" column if present)
+    const headerCells = document.querySelectorAll("#patientsTable thead th");
+    let headerRow = [];
+    for (let i = 0; i < headerCells.length - 1; i++) { // assuming the last column is "Actions"
+      headerRow.push(headerCells[i].innerText.trim());
+    }
+    data.push(headerRow);
+    
+    // Collect data rows from the table body
+    const rows = document.querySelectorAll("#patientsTable tbody tr");
+    rows.forEach(row => {
+      let rowData = [];
+      const cells = row.querySelectorAll("td");
+      for (let i = 0; i < cells.length - 1; i++) { // skip the last "Actions" cell
+        let cellValue = "";
+        // If cell contains a button (i.e., a procedure button)
+        const btn = cells[i].querySelector("button");
+        if (btn) {
+          cellValue = btn.classList.contains("done") ? "1" : "0";
+        } else {
+          // If cell contains a checkbox
+          const checkbox = cells[i].querySelector("input[type='checkbox']");
+          if (checkbox) {
+            cellValue = checkbox.checked ? "Yes" : "No";
+          } else {
+            cellValue = cells[i].innerText.trim();
+          }
+        }
+        rowData.push(cellValue);
+      }
+      data.push(rowData);
+    });
+    
+    // Send the data as JSON to the Google Apps Script Web App
+    fetch('https://script.google.com/macros/s/AKfycbw5ZdFk71V7ZhY5f4Hlqo0_PFK9rf0SEhuc1WrLFGRS4Z3WB8q2LzYbm7VsYNaF2PQ7/exec', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    })
+    .then(response => response.text())
+    .then(result => {
+      alert("Data exported without login successfully!\nResponse: " + result);
+    })
+    .catch(error => {
+      console.error("Error exporting without login:", error);
+      alert("Error exporting data: " + error);
+    });
+  }
+</script>
+
 </body>
 </html>
