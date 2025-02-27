@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Patient Payment Calculator</title>
+  <style>
+    /* Reset & Basic Styling */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      background: #fff;
+      margin: 0 auto;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+    header h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+    label {
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    select,
+    input[type="number"],
+    button {
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background: #28a745;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.2s ease;
+    }
+    button:hover {
+      background: #218838;
+    }
+    .hidden {
+      display: none;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      background: #e9f5e9;
+      padding: 10px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Patient Payment Calculator</h1>
+    </header>
+    <main>
+      <!-- New: Insurance Option -->
+      <div class="form-group">
+        <label for="insuranceOption">Does the patient have insurance?</label>
+        <select id="insuranceOption">
+          <option value="">Select an option</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      
+      <!-- Insurance Flow Section (Original Code) -->
+      <div id="insuranceFlow" class="hidden">
+        <!-- State Selection -->
+        <div class="form-group">
+          <label for="state">Select State</label>
+          <select id="state">
+            <option value="Florida">Florida</option>
+            <option value="Texas">Texas</option>
+          </select>
+        </div>
+        
+        <!-- Outstanding Deductible -->
+        <div class="form-group">
+          <label for="deductible">Outstanding Deductible?</label>
+          <select id="deductible">
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+        
+        <!-- Deductible Details (shown if Outstanding Deductible = Yes) -->
+        <div id="deductibleDetails">
+          <!-- Copay Question -->
+          <div class="form-group">
+            <label for="copay">Patient Paid Copay?</label>
+            <select id="copay">
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </div>
+          
+          <!-- Collection Fields -->
+          <div id="collectionFields">
+            <div class="form-group">
+              <label for="insurance">Select Insurance Provider</label>
+              <select id="insurance">
+                <option value="United/Golden Rule">United/Golden Rule</option>
+                <option value="Aetna">Aetna</option>
+                <option value="BCBS">BCBS</option>
+                <option value="Ambetter">Ambetter</option>
+                <option value="Cigna">Cigna</option>
+                <option value="Humana">Humana</option>
+                <option value="Other Insurance">Other Insurance</option>
+                <option value="Cash">Cash</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="procedure">Select Procedure (CPT Code)</label>
+              <select id="procedure">
+                <option value="11750">11750 (With Phenol)</option>
+                <option value="11730">11730 (No Phenol)</option>
+                <option value="10061">10061 (I &amp;D Toe)</option>
+              </select>
+            </div>
+            
+            <!-- Toes Count Dropdown: Always visible -->
+            <div class="form-group" id="toesGroup">
+              <label for="toesCount">Select Number of Toes</label>
+              <select id="toesCount">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+              </select>
+              <small>
+                For non-cash: 1 toe = 1×; 2 toes = 1.5×; 3+ toes = (toes - 1)× the procedure price.
+                For cash: Multiply the procedure price by the number of toes.
+              </small>
+            </div>
+            
+            <!-- Office Visit Type Group (hidden if copay paid) -->
+            <div class="form-group" id="visitTypeGroup">
+              <label for="visitType">Select Office Visit Type</label>
+              <select id="visitType">
+                <option value="New Patient Visit">New Patient Visit (99204)</option>
+                <option value="Return Visit">Return Visit (99214)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Cash Pay Flow Section (for patients without insurance) -->
+      <div id="cashFlow" class="hidden">
+        <div class="form-group">
+          <label for="cashVisitType">Select Visit Type</label>
+          <select id="cashVisitType">
+            <option value="">Select visit type</option>
+            <option value="new">New Visit ($200)</option>
+            <option value="return">Return Visit ($150)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cashProcedure">Select Procedure (CPT Code)</label>
+          <select id="cashProcedure">
+            <option value="">Select procedure</option>
+            <option value="11750">11750 - Nail Avulsion with Phenol ($250)</option>
+            <option value="11730">11730 - Nail Avulsion without Phenol ($250)</option>
+            <option value="10061">10061 - I&amp;D of Toe ($250)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cashToes">How many toes?</label>
+          <select id="cashToes">
+            <option value="">Select number of toes</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+      </div>
+      
+      <button id="calcButton">Calculate Payment</button>
+      <div id="result"></div>
+    </main>
+  </div>
+  
+  <script>
+    /***********************
+     * Pricing Data
+     ***********************/
+    const pricing = {
+      Florida: {
+        procedures: {
+          "United/Golden Rule": { "11750": 133.41, "11730": 94.10, "10061": 181.72 },
+          Aetna: { "11750": 119.00, "11730": 84.91, "10061": 163.52 },
+          BCBS: { "11750": 108.40, "11730": 77.44, "10061": 144.99 },
+          Ambetter: { "11750": 154.32, "11730": 110.11, "10061": 212.95 },
+          Cigna: { "11750": 125.56, "11730": 88.57, "10061": 171.03 },
+          Humana: { "11750": 156.88, "11730": 76.79, "10061": 143.71 },
+          "Other Insurance": { "11750": 150.00, "11730": 100.00, "10061": 150.00 },
+          Cash: { 
+            "11750": 250.00, 
+            "11730": 250.00, 
+            "10061": 250.00
+          }
+        },
+        officeVisits: {
+          "United/Golden Rule": { "New Patient Visit": 161.18, "Return Visit": 88.31 },
+          Aetna: { "New Patient Visit": 130.09, "Return Visit": 82.12 },
+          BCBS: { "New Patient Visit": 114.25, "Return Visit": 88.05 },
+          Ambetter: { "New Patient Visit": 163.76, "Return Visit": 127.97 },
+          Cigna: { "New Patient Visit": 130.09, "Return Visit": 87.34 },
+          Humana: { "New Patient Visit": 166.63, "Return Visit": 127.97 },
+          "Other Insurance": { "New Patient Visit": 130.00, "Return Visit": 90.00 },
+          Cash: { "New Patient Visit": 200.00, "Return Visit": 150.00 }
+        }
+      },
+      Texas: {
+        procedures: {
+          "United/Golden Rule": { "11750": 196.74, "11730": 130.00, "10061": 216.00 },
+          Aetna: { "11750": 196.45, "11730": 130.00, "10061": 216.00 },
+          BCBS: { "11750": 152.78, "11730": 110.50, "10061": 216.00 },
+          Ambetter: { "11750": 160.65, "11730": 115.25, "10061": 216.00 },
+          Cigna: { "11750": 196.45, "11730": 130.00, "10061": 216.00 },
+          Humana: { "11750": 160.65, "11730": 115.25, "10061": 216.00 },
+          "Other Insurance": { "11750": 200.00, "11730": 120.00, "10061": 216.00 },
+          Cash: { 
+            "11750": 250.00, 
+            "11730": 250.00, 
+            "10061": 250.00
+          }
+        },
+        officeVisits: {
+          "United/Golden Rule": { "New Patient Visit": 195.66, "Return Visit": 88.31 },
+          Aetna: { "New Patient Visit": 195.66, "Return Visit": 82.12 },
+          BCBS: { "New Patient Visit": 155.36, "Return Visit": 88.05 },
+          Ambetter: { "New Patient Visit": 169.05, "Return Visit": 127.97 },
+          Cigna: { "New Patient Visit": 195.66, "Return Visit": 87.34 },
+          Humana: { "New Patient Visit": 169.05, "Return Visit": 127.97 },
+          "Other Insurance": { "New Patient Visit": 200.00, "Return Visit": 90.00 },
+          Cash: { "New Patient Visit": 200.00, "Return Visit": 150.00 }
+        }
+      }
+    };
+
+    // For simplicity, we assume copay pricing is the same as procedure pricing.
+    const copayPricing = pricing;
+
+    /***********************
+     * UI Element References
+     ***********************/
+    const insuranceOptionSelect = document.getElementById("insuranceOption");
+    const insuranceFlow = document.getElementById("insuranceFlow");
+    const cashFlow = document.getElementById("cashFlow");
+    const stateSelect = document.getElementById("state");
+    const deductibleSelect = document.getElementById("deductible");
+    const deductibleDetails = document.getElementById("deductibleDetails");
+    const copaySelect = document.getElementById("copay");
+    const visitTypeGroup = document.getElementById("visitTypeGroup");
+    const insuranceSelect = document.getElementById("insurance");
+    const procedureSelect = document.getElementById("procedure");
+    const toesCountSelect = document.getElementById("toesCount");
+    const visitTypeSelect = document.getElementById("visitType");
+    const calcButton = document.getElementById("calcButton");
+    const resultDiv = document.getElementById("result");
+    
+    // Cash flow UI references
+    const cashVisitType = document.getElementById("cashVisitType");
+    const cashProcedure = document.getElementById("cashProcedure");
+    const cashToes = document.getElementById("cashToes");
+
+    /***********************
+     * UI Helpers
+     ***********************/
+    // Hide or show Office Visit Type group based on the copay selection.
+    const updateVisitTypeVisibility = () => {
+      if (copaySelect.value === "Yes") {
+        visitTypeGroup.style.display = "none";
+      } else {
+        visitTypeGroup.style.display = "block";
+      }
+    };
+
+    // Show/hide the deductible details based on the outstanding deductible selection.
+    const updateDeductibleDetailsVisibility = () => {
+      deductibleDetails.style.display = (deductibleSelect.value === "Yes") ? "block" : "none";
+    };
+
+    // Show/hide insurance flow vs cash flow based on insurance option selection.
+    const updateInsuranceOptionVisibility = () => {
+      if (insuranceOptionSelect.value === "yes") {
+        insuranceFlow.style.display = "block";
+        cashFlow.style.display = "none";
+      } else if (insuranceOptionSelect.value === "no") {
+        cashFlow.style.display = "block";
+        insuranceFlow.style.display = "none";
+      } else {
+        insuranceFlow.style.display = "none";
+        cashFlow.style.display = "none";
+      }
+    };
+
+    /***********************
+     * Calculation Logic
+     ***********************/
+    // For non-cash (insurance) pricing, the multiplier is defined as:
+    //   1 toe: 1×
+    //   2 toes: 1.5×
+    //   3 or more toes: (toes count - 1)× the procedure price.
+    const getMultiplier = (n) => {
+      if (n === 1) return 1;
+      else if (n === 2) return 1.5;
+      else return n - 1;
+    };
+
+    const calculateCost = () => {
+      // If insurance option is yes, use insurance pricing logic.
+      if (insuranceOptionSelect.value === "yes") {
+        const state = stateSelect.value;
+        if (deductibleSelect.value === "No") {
+          resultDiv.textContent = "Do not collect, since the patient has met deductible. Please confirm with flags, or by running insurance eligibility.";
+          return;
+        }
+      
+        const copayPaid = copaySelect.value;
+        const insurance = insuranceSelect.value;
+        const procedure = procedureSelect.value;
+        const visitType = visitTypeSelect.value;
+        const pricingData = pricing[state];
+        const toesCount = parseInt(toesCountSelect.value) || 1;
+      
+        let procedureCost = 0;
+        let officeCost = 0;
+        let total = 0;
+        let breakdownHTML = "";
+      
+        if (copayPaid === "Yes") {
+          // Use copay pricing.
+          if (insurance === "Cash") {
+            procedureCost = toesCount * copayPricing[state].procedures[insurance][procedure];
+          } else {
+            procedureCost = getMultiplier(toesCount) * copayPricing[state].procedures[insurance][procedure];
+          }
+          total = procedureCost;
+          breakdownHTML += `<p>Copay amount (for ${toesCount} toe${toesCount > 1 ? "s" : ""}): $${procedureCost.toFixed(2)}</p>`;
+        } else {
+          // Full collection pricing: procedure cost plus office visit fee.
+          if (insurance === "Cash") {
+            procedureCost = toesCount * pricingData.procedures[insurance][procedure];
+          } else {
+            procedureCost = getMultiplier(toesCount) * pricingData.procedures[insurance][procedure];
+          }
+          officeCost = pricingData.officeVisits[insurance][visitType];
+          total = procedureCost + officeCost;
+          breakdownHTML += `<p>Procedure cost (for ${toesCount} toe${toesCount > 1 ? "s" : ""}): $${procedureCost.toFixed(2)}</p>`;
+          breakdownHTML += `<p>Office visit cost: $${officeCost.toFixed(2)}</p>`;
+        }
+      
+        breakdownHTML += `<p><strong>Total amount due: $${total.toFixed(2)}</strong></p>`;
+        resultDiv.innerHTML = breakdownHTML;
+      } else if (insuranceOptionSelect.value === "no") {
+        // Cash pay pricing logic for patients without insurance.
+        const visitType = cashVisitType.value;
+        const procedure = cashProcedure.value;
+        const toes = parseInt(cashToes.value) || 1;
+      
+        if (!visitType || !procedure || !toes) {
+          resultDiv.innerHTML = `<p>Please select all options for cash payment calculation.</p>`;
+          return;
+        }
+      
+        // Visit fees: New Visit = $200, Return Visit = $150
+        let visitFee = (visitType === "new") ? 200 : 150;
+      
+        // Procedure fee fixed at $250.
+        const procedureFee = 250;
+      
+        // For cash pay: if 1 toe, cost is $250; if more than 1 toe, extra toes cost $150 each.
+        let extraToeCost = 0;
+        if (toes > 1) {
+          extraToeCost = 150 * (toes - 1);
+        }
+      
+        const total = visitFee + procedureFee + extraToeCost;
+        let breakdownHTML = `<p>Visit fee: $${visitFee.toFixed(2)}</p>`;
+        breakdownHTML += `<p>Procedure fee: $${procedureFee.toFixed(2)}</p>`;
+        breakdownHTML += `<p>Extra toes cost: $${extraToeCost.toFixed(2)}</p>`;
+        breakdownHTML += `<p><strong>Total amount due: $${total.toFixed(2)}</strong></p>`;
+        resultDiv.innerHTML = breakdownHTML;
+      }
+    };
+
+    /***********************
+     * Event Listeners
+     ***********************/
+    insuranceOptionSelect.addEventListener("change", updateInsuranceOptionVisibility);
+    deductibleSelect.addEventListener("change", updateDeductibleDetailsVisibility);
+    copaySelect.addEventListener("change", updateVisitTypeVisibility);
+    calcButton.addEventListener("click", calculateCost);
+
+    // Initialize UI state.
+    updateInsuranceOptionVisibility();
+    updateDeductibleDetailsVisibility();
+    updateVisitTypeVisibility();
+  </script>
+</body>
+</html>
