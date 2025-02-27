@@ -86,7 +86,7 @@
       });
     }
 
-    // Main function to perform geocoding and search for medical offices
+    // Main function to perform geocoding and search for medical offices (with pagination)
     async function searchMedicalOffices() {
       const address = document.getElementById("address").value;
       const radius = document.getElementById("radius").value;
@@ -111,37 +111,59 @@
           const map = new google.maps.Map(document.createElement("div"));
           const service = new google.maps.places.PlacesService(map);
 
-          // Define the request parameters for nearby search
+          // Build the request object
           let request = {
             location: latLng,
             radius: parseInt(radius)
           };
 
-          // If a keyword is provided, use it; otherwise, use default types
+          // Use keyword if provided; otherwise, default to certain types
           if (keyword) {
             request.keyword = keyword;
           } else {
             request.type = ["doctor", "hospital", "pharmacy"];
           }
 
-          // Perform the nearby search
-          service.nearbySearch(request, async (results, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK) {
-              officeResults = [];
-              for (let place of results) {
-                // Fetch additional details (e.g., phone number)
-                const phone = await fetchPlaceDetails(place.place_id);
-                officeResults.push({
-                  name: place.name,
-                  address: place.vicinity,
-                  phone: phone
-                });
+          // Function to accumulate all pages of results
+          const allResults = await new Promise((resolve) => {
+            let accumulatedResults = [];
+
+            // This callback will be used for each page of results
+            function processPage(results, status, pagination) {
+              if (status === google.maps.places.PlacesServiceStatus.OK) {
+                accumulatedResults = accumulatedResults.concat(results);
+                if (pagination && pagination.hasNextPage) {
+                  // The API requires a short delay before calling nextPage()
+                  setTimeout(() => {
+                    pagination.nextPage();
+                  }, 2000);
+                } else {
+                  resolve(accumulatedResults);
+                }
+              } else {
+                // On error, resolve with whatever results we have so far
+                resolve(accumulatedResults);
               }
-              displayResults(officeResults);
-            } else {
-              alert("No results found or an error occurred: " + status);
             }
+
+            // Initiate the first nearby search call
+            service.nearbySearch(request, processPage);
           });
+
+          console.log("All results:", allResults);
+
+          // Process each result to fetch additional details (e.g., phone number)
+          officeResults = [];
+          for (let place of allResults) {
+            const phone = await fetchPlaceDetails(place.place_id);
+            officeResults.push({
+              name: place.name,
+              address: place.vicinity,
+              phone: phone
+            });
+          }
+
+          displayResults(officeResults);
         } else {
           alert("Geocoding failed: " + status);
         }
