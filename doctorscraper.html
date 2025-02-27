@@ -4,10 +4,24 @@
   <meta charset="UTF-8">
   <title>Medical Office Search</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    input, button { padding: 10px; margin: 5px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
@@ -21,14 +35,14 @@
   
   <!-- Load Google Maps JavaScript API with your key -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfSowiLJ3mz3KlxtdvxzVpRXx-J-KYsP0&libraries=places"></script>
-  <!-- Load SheetJS -->
+  <!-- Load SheetJS for Excel export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   
   <script>
-    // Global array to store results
+    // Global variable to store office results
     let officeResults = [];
 
-    // Function to create a table from the results
+    // Function to display results in a table
     function displayResults(results) {
       const resultsDiv = document.getElementById("results");
       let html = "<table><tr><th>Name</th><th>Address</th><th>Phone</th></tr>";
@@ -41,7 +55,7 @@
       });
       html += "</table>";
       resultsDiv.innerHTML = html;
-      // Enable the export button if there are results
+      // Enable export button if results are available
       document.getElementById("exportBtn").disabled = results.length === 0;
     }
 
@@ -53,9 +67,9 @@
       XLSX.writeFile(workbook, "medical_offices.xlsx");
     }
 
-    // Function to get additional details (like phone) via Place Details if needed
+    // Function to fetch additional details (such as phone number) via Place Details API
     function fetchPlaceDetails(placeId) {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const service = new google.maps.places.PlacesService(document.createElement('div'));
         service.getDetails({ placeId: placeId, fields: ['formatted_phone_number'] }, (place, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK) {
@@ -67,43 +81,43 @@
       });
     }
 
-    // Main function to perform the search
+    // Main function to perform geocoding and search for medical offices
     async function searchMedicalOffices() {
       const address = document.getElementById("address").value;
       const radius = document.getElementById("radius").value;
-      
+
       if (!address) {
         alert("Please enter an address.");
         return;
       }
 
-      // Create a Geocoder instance
       const geocoder = new google.maps.Geocoder();
 
-      // Geocode the address to get latitude and longitude
+      // Geocode the address and log the API response for troubleshooting
       geocoder.geocode({ address: address }, async (results, status) => {
+        console.log("Geocoder status:", status);
+        console.log("Geocoder results:", results);
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
           const latLng = { lat: location.lat(), lng: location.lng() };
 
-          // Create a map instance (not displayed) to use PlacesService
+          // Create a map instance (not displayed) to use the PlacesService
           const map = new google.maps.Map(document.createElement("div"));
           const service = new google.maps.places.PlacesService(map);
-          
-          // Define request parameters for a nearby search
+
+          // Define the request parameters for nearby search
           const request = {
             location: latLng,
-            radius: radius,
-            type: ["doctor", "hospital", "pharmacy"] // Adjust types as needed
+            radius: parseInt(radius),
+            type: ["doctor", "hospital", "pharmacy"]
           };
 
           // Perform the nearby search
           service.nearbySearch(request, async (results, status) => {
             if (status === google.maps.places.PlacesServiceStatus.OK) {
               officeResults = [];
-              // Loop through results to store details. Note: Nearby search may not include phone.
               for (let place of results) {
-                // For each place, fetch additional details if needed
+                // Fetch additional details (e.g., phone number)
                 const phone = await fetchPlaceDetails(place.place_id);
                 officeResults.push({
                   name: place.name,
@@ -122,7 +136,7 @@
       });
     }
 
-    // Set up event listeners
+    // Set up event listeners for the search and export buttons
     document.getElementById("searchBtn").addEventListener("click", searchMedicalOffices);
     document.getElementById("exportBtn").addEventListener("click", () => {
       exportToExcel(officeResults);
