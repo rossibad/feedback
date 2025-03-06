@@ -34,6 +34,11 @@
       background-color: #ddd;
       cursor: default;
     }
+    /* Group header styling */
+    thead tr.group-header th {
+      background-color: #ddd;
+      font-weight: bold;
+    }
     button {
       padding: 5px 10px;
       cursor: pointer;
@@ -96,24 +101,31 @@
     <p id="status"></p>
   </div>
 
-  <!-- Data Table -->
+  <!-- Data Table with Grouped Headers -->
   <table id="patientsTable">
     <thead>
+      <!-- Group Header Row -->
+      <tr class="group-header">
+        <th rowspan="2" class="fixed">Patient</th>
+        <th rowspan="2" class="fixed">New?</th>
+        <th colspan="3">DME</th>
+        <th rowspan="2">Casting</th>
+        <th colspan="2">IMAGING</th>
+        <th colspan="3">Office Procedures</th>
+        <th rowspan="2">Ordering Diabetic Shoes</th>
+        <th rowspan="2">Notes</th>
+        <th rowspan="2">Actions</th>
+      </tr>
+      <!-- Individual Column Header Row -->
       <tr>
-        <th class="fixed">Patient</th>
-        <th class="fixed">New?</th>
-        <th title="Drag to rearrange" style="cursor: move;">Night Splint</th>
-        <th title="Drag to rearrange" style="cursor: move;">Cam Boots</th>
-        <th title="Drag to rearrange" style="cursor: move;">Casting</th>
-        <th title="Drag to rearrange" style="cursor: move;">X-Rays</th>
-        <th title="Drag to rearrange" style="cursor: move;">Ultrasound</th>
-        <th title="Drag to rearrange" style="cursor: move;">Routine Care</th>
-        <th title="Drag to rearrange" style="cursor: move;">Injection</th>
-        <th title="Drag to rearrange" style="cursor: move;">Ordering Diabetic Shoes</th>
-        <th title="Drag to rearrange" style="cursor: move;">Nail Procedure</th>
-        <th title="Drag to rearrange" style="cursor: move;">ASO Brace</th>
-        <th title="Drag to rearrange" style="cursor: move;">Notes</th>
-        <th title="Drag to rearrange" style="cursor: move;">Actions</th>
+        <th>Night Splint</th>
+        <th>CAM Walker</th>
+        <th>ASO Brace</th>
+        <th>X-Rays</th>
+        <th>Ultrasound</th>
+        <th>Nail Procedure</th>
+        <th>Routine Care</th>
+        <th>Injection</th>
       </tr>
     </thead>
     <tbody>
@@ -141,7 +153,7 @@
       tbody.innerHTML = "";
       names.forEach(function(name) {
         const trimmedName = name.trim();
-        if(trimmedName !== "") {
+        if (trimmedName !== "") {
           tbody.appendChild(createRow(trimmedName));
         }
       });
@@ -151,12 +163,15 @@
     function addRow(name) {
       const tbody = document.querySelector("#patientsTable tbody");
       const trimmedName = name.trim();
-      if(trimmedName !== "") {
+      if (trimmedName !== "") {
         tbody.appendChild(createRow(trimmedName));
         enableColumnDragAndDrop();
       }
     }
     
+    // Create a row following the new column order:
+    // Patient, New?, DME (Night Splint, CAM Walker, ASO Brace), Casting, IMAGING (X-Rays, Ultrasound),
+    // Office Procedures (Nail Procedure, Routine Care, Injection), Ordering Diabetic Shoes, Notes, Actions.
     function createRow(name) {
       const tr = document.createElement("tr");
       
@@ -173,42 +188,70 @@
       tdNew.appendChild(checkbox);
       tr.appendChild(tdNew);
       
-      // Procedure columns
-      const procedures = [
-        "Night Splint",
-        "Cam Boots",
-        "Casting",
-        "X-Rays",
-        "Ultrasound",
-        "Routine Care",
-        "Injection",
-        "Ordering Diabetic Shoes",
-        "Nail Procedure",
-        "ASO Brace"
-      ];
-      procedures.forEach(function(proc) {
+      // DME group: Night Splint, CAM Walker, ASO Brace
+      const dmeProcedures = ["Night Splint", "CAM Walker", "ASO Brace"];
+      dmeProcedures.forEach(function(proc) {
         const td = document.createElement("td");
-        if(proc === "Casting") {
-          // Special handling for Casting
-          const container = document.createElement("div");
-          const castButton = document.createElement("button");
-          castButton.textContent = "Mark Done";
-          castButton.addEventListener("click", function() {
-            toggleCasting(castButton, container);
-          });
-          container.appendChild(castButton);
-          td.appendChild(container);
-        } else {
-          const btn = document.createElement("button");
-          btn.textContent = "Mark Done";
-          btn.dataset.service = proc;
-          btn.addEventListener("click", function() {
-            toggleButton(btn);
-          });
-          td.appendChild(btn);
-        }
+        const btn = document.createElement("button");
+        btn.textContent = "Mark Done";
+        btn.dataset.service = proc;
+        btn.addEventListener("click", function() {
+          toggleButton(btn);
+        });
+        td.appendChild(btn);
         tr.appendChild(td);
       });
+      
+      // Casting column (with special casting handling)
+      const tdCasting = document.createElement("td");
+      const containerCasting = document.createElement("div");
+      const castButton = document.createElement("button");
+      castButton.textContent = "Mark Done";
+      castButton.addEventListener("click", function() {
+        toggleCasting(castButton, containerCasting);
+      });
+      containerCasting.appendChild(castButton);
+      tdCasting.appendChild(containerCasting);
+      tr.appendChild(tdCasting);
+      
+      // IMAGING group: X-Rays, Ultrasound
+      const imagingProcedures = ["X-Rays", "Ultrasound"];
+      imagingProcedures.forEach(function(proc) {
+        const td = document.createElement("td");
+        const btn = document.createElement("button");
+        btn.textContent = "Mark Done";
+        btn.dataset.service = proc;
+        btn.addEventListener("click", function() {
+          toggleButton(btn);
+        });
+        td.appendChild(btn);
+        tr.appendChild(td);
+      });
+      
+      // Office Procedures group: Nail Procedure, Routine Care, Injection
+      const officeProcedures = ["Nail Procedure", "Routine Care", "Injection"];
+      officeProcedures.forEach(function(proc) {
+        const td = document.createElement("td");
+        const btn = document.createElement("button");
+        btn.textContent = "Mark Done";
+        btn.dataset.service = proc;
+        btn.addEventListener("click", function() {
+          toggleButton(btn);
+        });
+        td.appendChild(btn);
+        tr.appendChild(td);
+      });
+      
+      // Ordering Diabetic Shoes column
+      const tdODS = document.createElement("td");
+      const btnODS = document.createElement("button");
+      btnODS.textContent = "Mark Done";
+      btnODS.dataset.service = "Ordering Diabetic Shoes";
+      btnODS.addEventListener("click", function() {
+        toggleButton(btnODS);
+      });
+      tdODS.appendChild(btnODS);
+      tr.appendChild(tdODS);
       
       // Notes column: free-hand text input
       const tdNotes = document.createElement("td");
@@ -233,7 +276,7 @@
     }
     
     function toggleButton(button) {
-      if(button.classList.contains("done")) {
+      if (button.classList.contains("done")) {
         button.classList.remove("done");
         button.textContent = "Mark Done";
       } else {
@@ -243,18 +286,18 @@
     }
     
     function toggleCasting(button, container) {
-      if(button.classList.contains("done")) {
+      if (button.classList.contains("done")) {
         button.classList.remove("done");
         button.textContent = "Mark Done";
         const authOptions = container.querySelector(".auth-options");
-        if(authOptions) container.removeChild(authOptions);
+        if (authOptions) container.removeChild(authOptions);
         const authMessage = container.querySelector(".auth-message");
-        if(authMessage) container.removeChild(authMessage);
+        if (authMessage) container.removeChild(authMessage);
       } else {
         button.classList.add("done");
         button.textContent = "Done";
         let authOptions = container.querySelector(".auth-options");
-        if(!authOptions) {
+        if (!authOptions) {
           authOptions = document.createElement("div");
           authOptions.className = "auth-options";
           authOptions.style.marginTop = "5px";
@@ -285,19 +328,13 @@
     
     // --- Column Drag and Drop ---
     function enableColumnDragAndDrop() {
-      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      const headerCells = document.querySelectorAll("#patientsTable thead tr:nth-child(2) th");
       headerCells.forEach((cell, index) => {
-        if(cell.classList.contains("fixed")) {
-          cell.draggable = false;
-          cell.removeEventListener("dragstart", handleDragStart);
-          cell.removeEventListener("dragover", handleDragOver);
-          cell.removeEventListener("drop", handleDrop);
-        } else {
-          cell.draggable = true;
-          cell.addEventListener("dragstart", handleDragStart);
-          cell.addEventListener("dragover", handleDragOver);
-          cell.addEventListener("drop", handleDrop);
-        }
+        // We allow dragging on the individual header row (not the group row)
+        cell.draggable = true;
+        cell.addEventListener("dragstart", handleDragStart);
+        cell.addEventListener("dragover", handleDragOver);
+        cell.addEventListener("drop", handleDrop);
       });
     }
     
@@ -313,11 +350,8 @@
     function handleDrop(e) {
       e.preventDefault();
       const targetColIndex = e.target.cellIndex;
-      if(e.target.classList.contains("fixed")) return;
       const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
-      const headerCells = document.querySelectorAll("#patientsTable thead th");
-      if(headerCells[sourceIndex].classList.contains("fixed")) return;
-      if(sourceIndex !== targetColIndex) {
+      if (sourceIndex !== targetColIndex) {
         reorderTableColumns(sourceIndex, targetColIndex);
         enableColumnDragAndDrop();
       }
@@ -325,16 +359,16 @@
     function reorderTableColumns(fromIndex, toIndex) {
       const table = document.getElementById("patientsTable");
       const rows = table.rows;
-      for(let i = 0; i < rows.length; i++) {
+      for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const cells = row.cells;
-        let cell = cells[fromIndex];
+        let cell = cells[fromIndex + (i === 0 ? 0 : 0)]; // Note: Our header rows are separate, so this applies to tbody rows.
         let adjustedIndex = toIndex;
-        if(fromIndex < toIndex) {
+        if (fromIndex < toIndex) {
           adjustedIndex--;
         }
         row.removeChild(cell);
-        if(adjustedIndex >= cells.length) {
+        if (adjustedIndex >= cells.length) {
           row.appendChild(cell);
         } else {
           row.insertBefore(cell, cells[adjustedIndex]);
@@ -362,7 +396,7 @@
     document.getElementById("manualAddButton").addEventListener("click", function() {
       const manualInput = document.getElementById("manualName");
       const name = manualInput.value;
-      if(name.trim() === "") {
+      if (name.trim() === "") {
         alert("Please enter a valid name.");
         return;
       }
@@ -373,7 +407,7 @@
     document.getElementById("uploadButton").addEventListener("click", function() {
       const fileInput = document.getElementById("fileInput");
       const statusElem = document.getElementById("status");
-      if(fileInput.files.length === 0) {
+      if (fileInput.files.length === 0) {
         alert("Please select an image file that contains patient names (one per line).");
         return;
       }
@@ -415,7 +449,7 @@
       });
     }
     function updateSigninStatus(isSignedIn) {
-      if(isSignedIn) {
+      if (isSignedIn) {
         document.getElementById("signInButton").style.display = "none";
         document.getElementById("signOutButton").style.display = "block";
       } else {
@@ -433,27 +467,35 @@
     // Export using Google API (with login)
     function exportToSheet() {
       let data = [];
-      // Header row (skip last "Actions")
-      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      // Get individual header row (from the second header row)
+      const headerCells = document.querySelectorAll("#patientsTable thead tr:nth-child(2) th");
       let headerRow = [];
-      for(let i = 0; i < headerCells.length - 1; i++) {
-        headerRow.push(headerCells[i].innerText.trim());
-      }
+      headerCells.forEach(cell => {
+        headerRow.push(cell.innerText.trim());
+      });
+      // Prepend the fixed columns that are only in the first row:
+      // "Patient" and "New?" are not in the second row because they have rowspan="2"
+      headerRow.unshift("New?");
+      headerRow.unshift("Patient");
       data.push(headerRow);
       
-      // Process table rows (skip last cell "Actions")
+      // Process table rows from tbody (skip last "Actions" cell)
       const rows = document.querySelectorAll("#patientsTable tbody tr");
       rows.forEach(row => {
         let rowData = [];
+        // We assume the cells are in the same order as the final header:
+        // Patient, New?, DME (3 columns), Casting, IMAGING (2 columns), Office Procedures (3 columns), Ordering Diabetic Shoes, Notes, Actions.
         const cells = row.querySelectorAll("td");
-        for(let i = 0; i < cells.length - 1; i++) {
+        // Skip last cell (Actions)
+        for (let i = 0; i < cells.length - 1; i++) {
           let cellValue = "";
+          // For procedure buttons and such:
           const btn = cells[i].querySelector("button");
-          if(btn) {
+          if (btn) {
             cellValue = btn.classList.contains("done") ? "1" : "0";
           } else {
             const checkbox = cells[i].querySelector("input[type='checkbox']");
-            if(checkbox) {
+            if (checkbox) {
               cellValue = checkbox.checked ? "Yes" : "No";
             } else {
               cellValue = cells[i].innerText.trim();
@@ -492,27 +534,30 @@
     // Export without login (using fetch and no-cors)
     function exportWithoutLogin() {
       let data = [];
-      // Header row (skip last "Actions")
-      const headerCells = document.querySelectorAll("#patientsTable thead th");
+      // Get individual header row from second header row
+      const headerCells = document.querySelectorAll("#patientsTable thead tr:nth-child(2) th");
       let headerRow = [];
-      for(let i = 0; i < headerCells.length - 1; i++) {
-        headerRow.push(headerCells[i].innerText.trim());
-      }
+      headerCells.forEach(cell => {
+        headerRow.push(cell.innerText.trim());
+      });
+      // Prepend the fixed columns: Patient and New?
+      headerRow.unshift("New?");
+      headerRow.unshift("Patient");
       data.push(headerRow);
       
-      // Table rows (skip last "Actions" cell)
+      // Process table rows (skip last "Actions" cell)
       const rows = document.querySelectorAll("#patientsTable tbody tr");
       rows.forEach(row => {
         let rowData = [];
         const cells = row.querySelectorAll("td");
-        for(let i = 0; i < cells.length - 1; i++) {
+        for (let i = 0; i < cells.length - 1; i++) {
           let cellValue = "";
           const btn = cells[i].querySelector("button");
-          if(btn) {
+          if (btn) {
             cellValue = btn.classList.contains("done") ? "1" : "0";
           } else {
             const checkbox = cells[i].querySelector("input[type='checkbox']");
-            if(checkbox) {
+            if (checkbox) {
               cellValue = checkbox.checked ? "Yes" : "No";
             } else {
               cellValue = cells[i].innerText.trim();
