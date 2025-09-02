@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Podiatry Tracker App — Grouped Headers + No‑Login Save</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    .section { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; }
+    .section h2 { margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    table, th, td { border: 1px solid #444; padding: 8px; text-align: center; }
+    thead th { background-color: #f0f0f0; user-select: none; }
+    thead tr.group-header th { background-color: #ddd; font-weight: bold; }
+    button { padding: 5px 10px; cursor: pointer; margin: 5px; }
+    button.done { background-color: #4CAF50; color: white; }
+    input[type="text"] { padding: 5px; }
+    #exportInstructions { margin-top: 20px; font-weight: bold; font-size: 16px; color: #333; }
+    /* Toast */
+    #toastContainer { position: fixed; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 9999; }
+    .toast { background: #111; color: #fff; padding: 10px 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.2); opacity:0; transform: translateY(-10px);
+      animation: toast-in .15s ease-out forwards, toast-out .3s ease-in forwards 2.2s; }
+    @keyframes toast-in { to { opacity:1; transform: translateY(0); } }
+    @keyframes toast-out { to { opacity:0; transform: translateY(-8px); } }
+  </style>
+  <!-- OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <h1>Podiatry Tracker App</h1>
+  <p>Use this app to track the items and services dispensed. You can preview sample names, add patient names manually, or upload names via OCR. Save **without logging in** to your preset Google Sheet.</p>
+
+  <!-- Preview Sample Names -->
+  <div id="previewSection" class="section">
+    <h2>Preview Sample Names</h2>
+    <p>Click the button below to populate the table with sample patient names.</p>
+    <button id="previewButton">Preview Sample Names</button>
+  </div>
+
+  <!-- Manual Entry -->
+  <div id="manualSection" class="section">
+    <h2>Manually Add Patient</h2>
+    <p>Enter a patient's name and click "Add Patient" to add it to the table.</p>
+    <input type="text" id="manualName" placeholder="First Last">
+    <button id="manualAddButton">Add Patient</button>
+  </div>
+
+  <!-- OCR Upload -->
+  <div id="uploadSection" class="section">
+    <h2>Upload Patient Names from Image (OCR)</h2>
+    <p>Upload an image file (screenshot) that contains patient names (one per line). The OCR process will extract the names and add them to the table.</p>
+    <input type="file" id="fileInput" accept="image/*">
+    <button id="uploadButton">Upload and Process OCR</button>
+    <p id="status"></p>
+  </div>
+
+  <!-- Data Table with Grouped Headers (from the first file) -->
+  <table id="patientsTable">
+    <thead>
+      <tr class="group-header">
+        <th rowspan="2">Patient</th>
+        <th colspan="4">SIMPLE PROCEDURES</th>
+        <th colspan="5">DME + DM SHOE + L3000</th>
+        <th colspan="3">OFFICE PROCEDURES</th>
+        <th colspan="2">IMAGING</th>
+      </tr>
+      <tr>
+        <!-- SIMPLE PROCEDURES -->
+        <th>Routine Foot Care</th>
+        <th>Injection</th>
+        <th>Wart Destruction</th>
+        <th>Multilayer Compression</th>
+        <!-- DME + DM SHOE + L3000 -->
+        <th>CAM BOOT</th>
+        <th>NIGHT SPLINT</th>
+        <th>ASO BRACE</th>
+        <th>DM SHOES</th>
+        <th>L3000</th>
+        <!-- OFFICE PROCEDURES -->
+        <th>Nail Procedure</th>
+        <th>I&amp;D</th>
+        <th>Flexor Tenotomy</th>
+        <!-- IMAGING -->
+        <th>X-rays</th>
+        <th>Ultrasound</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Rows populated dynamically -->
+    </tbody>
+  </table>
+
+  <!-- Bottom Buttons (same idea as your new file) -->
+  <div style="margin-top:16px;">
+    <button id="exportButton" onclick="exportToSheet()" disabled>Export to Google Sheets (with login)</button>
+    <button id="exportNoLoginButton" onclick="exportWithoutLogin()">Export without logging into your Google account</button>
+    <button id="openSheetButton" onclick="window.location.href='https://docs.google.com/spreadsheets/d/1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk/edit?usp=sharing'">Open Spreadsheet</button>
+  </div>
+
+  <div id="exportInstructions">
+    <p>Instructions: To export with login, sign in and click "Export to Google Sheets (with login)". Otherwise, click "Export without logging into your Google account" and then verify your data by clicking "Open Spreadsheet".</p>
+  </div>
+
+  <script>
+    // ===== Helpers =====
+    function showToast(message) {
+      let container = document.getElementById('toastContainer');
+      if (!container) { container = document.createElement('div'); container.id = 'toastContainer'; container.setAttribute('aria-live','polite'); document.body.appendChild(container); }
+      const t = document.createElement('div'); t.className='toast'; t.role='status'; t.textContent = message; container.appendChild(t); setTimeout(()=>t.remove(), 2600);
+    }
+
+    function toggleButton(btn) {
+      const wasDone = btn.classList.contains('done');
+      btn.classList.toggle('done');
+      btn.textContent = btn.classList.contains('done') ? 'Done' : 'Mark Done';
+      // L3000 superstar on the 3rd Done in the table
+      if (!wasDone && btn.dataset.service === 'L3000' && btn.classList.contains('done')) {
+        const count = document.querySelectorAll('button[data-service="L3000"].done').length;
+        if (count === 3) showToast('3 CASTINGS IN ONE DAY!  SUPER STAR!');
+      }
+    }
+
+    // ===== Table population =====
+    const PROCEDURES = [
+      'Routine Foot Care','Injection','Wart Destruction','Multilayer Compression',
+      'CAM BOOT','NIGHT SPLINT','ASO BRACE','DM SHOES','L3000',
+      'Nail Procedure','I&D','Flexor Tenotomy',
+      'X-rays','Ultrasound'
+    ];
+
+    function createRow(name) {
+      const tr = document.createElement('tr');
+      // Patient name cell (text; you add via Manual Add or OCR)
+      const tdPatient = document.createElement('td');
+      tdPatient.textContent = name;
+      tr.appendChild(tdPatient);
+      // One button per procedure
+      PROCEDURES.forEach(proc => {
+        const td = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.textContent = 'Mark Done';
+        btn.dataset.service = proc;
+        btn.addEventListener('click', () => toggleButton(btn));
+        td.appendChild(btn);
+        tr.appendChild(td);
+      });
+      return tr;
+    }
+
+    function populateTable(names) {
+      const tbody = document.querySelector('#patientsTable tbody');
+      tbody.innerHTML = '';
+      names.forEach(name => {
+        const trimmed = String(name || '').trim();
+        if (trimmed) tbody.appendChild(createRow(trimmed));
+      });
+    }
+
+    function addRow(name) {
+      const tbody = document.querySelector('#patientsTable tbody');
+      const trimmed = String(name || '').trim();
+      if (trimmed) tbody.appendChild(createRow(trimmed));
+    }
+
+    // ===== Event wiring for sample/manual/OCR =====
+    document.getElementById('previewButton').addEventListener('click', () => {
+      populateTable(['John Doe','Jane Smith','Alice Johnson','Bob Brown','Charlie Davis','Emily Wilson','Frank Miller','Grace Lee','Hannah Taylor','Ian Clark']);
+    });
+
+    document.getElementById('manualAddButton').addEventListener('click', () => {
+      const input = document.getElementById('manualName');
+      const name = input.value;
+      if (!name.trim()) { alert('Please enter a valid name.'); return; }
+      addRow(name); input.value = '';
+    });
+
+    document.getElementById('uploadButton').addEventListener('click', () => {
+      const fileInput = document.getElementById('fileInput');
+      const statusElem = document.getElementById('status');
+      if (!fileInput.files.length) { alert('Please select an image file.'); return; }
+      const file = fileInput.files[0];
+      statusElem.textContent = 'Processing OCR, please wait...';
+      Tesseract.recognize(file, 'eng', { logger: m => console.log(m) })
+        .then(({ data: { text } }) => {
+          statusElem.textContent = 'OCR processing complete.';
+          const names = text.split(/
+?
+/);
+          populateTable(names);
+        })
+        .catch(err => { console.error(err); statusElem.textContent = 'Error during OCR processing.'; });
+    });
+
+    // ===== Export with login (gapi) — unchanged, just matches new headers
+    const CLIENT_ID = '274211132378-60hhu50rqigl58dd3lph2l6ot0crdkrf.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyBSsRF__f7e4LUkxO5msIAs8BC6hX92-eE';
+    const DISCOVERY_DOCS = ['https://sheets.googleapis.com/$discovery/rest?version=v4'];
+    const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
+    function handleClientLoad(){ gapi.load('client:auth2', initClient); }
+    function initClient(){
+      gapi.client.init({ apiKey: API_KEY, clientId: CLIENT_ID, discoveryDocs: DISCOVERY_DOCS, scope: SCOPES })
+        .then(function(){
+          gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+          updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+          document.getElementById('exportButton').disabled = false;
+        }, function(error){ console.error(JSON.stringify(error, null, 2)); });
+    }
+    function updateSigninStatus(isSignedIn){
+      document.getElementById('signInButton')?.style && (document.getElementById('signInButton').style.display = isSignedIn ? 'none' : 'block');
+      document.getElementById('signOutButton')?.style && (document.getElementById('signOutButton').style.display = isSignedIn ? 'block' : 'none');
+    }
+    function handleSignInClick(){ gapi.auth2.getAuthInstance().signIn(); }
+    function handleSignOutClick(){ gapi.auth2.getAuthInstance().signOut(); }
+
+    function buildGridData(){
+      const data = [];
+      // second header row defines the column names
+      const headerCells = document.querySelectorAll('#patientsTable thead tr:nth-child(2) th');
+      const headerRow = ['Patient'];
+      headerCells.forEach(cell => headerRow.push(cell.innerText.trim()));
+      data.push(headerRow);
+
+      // rows
+      document.querySelectorAll('#patientsTable tbody tr').forEach(row => {
+        const rowData = [];
+        const cells = row.querySelectorAll('td');
+        cells.forEach((cell) => {
+          const btn = cell.querySelector('button');
+          if (btn) rowData.push(btn.classList.contains('done') ? '1' : '0');
+          else rowData.push(cell.innerText.trim()); // Patient name cell
+        });
+        data.push(rowData);
+      });
+      return data;
+    }
+
+    function exportToSheet(){
+      const data = buildGridData();
+      const spreadsheetId = '1afikn7dpw-QnO3KQVBsUtRceeHslzd7VDoBPHnZiGFk';
+      const range = 'Sheet1!A1';
+      const params = { spreadsheetId, range, valueInputOption: 'USER_ENTERED' };
+      const valueRangeBody = { values: data };
+      gapi.client.sheets.spreadsheets.values.append(params, valueRangeBody).then(
+        res => { console.log(res.result); alert('Data exported to Google Sheets successfully!'); },
+        err => { console.error('Error: ' + err.result.error.message); alert('Failed to export data: ' + err.result.error.message); }
+      );
+    }
+
+    // ===== Export without login (Apps Script endpoint) =====
+    function exportWithoutLogin(){
+      const data = buildGridData();
+      fetch('https://script.google.com/macros/s/AKfycbzddIS9_h0H69lFwmkuroaujNiLVaqgoPWSYAHAKPFksJ1pSlLjLZoc0UE-BMDXNqav/exec', {
+        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+      })
+      .then(() => { alert('Data exported without login successfully! (Response is opaque; please verify in your spreadsheet.)'); })
+      .catch(error => { console.error('Error exporting without login:', error); alert('Error exporting data: ' + error); });
+    }
+
+    // Wire preview at load
+    document.addEventListener('DOMContentLoaded', function(){ /* no-op */ });
+  </script>
+  <script src="https://apis.google.com/js/api.js" onload="handleClientLoad()"></script>
+</body>
+</html>
