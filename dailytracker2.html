@@ -22,38 +22,16 @@
     @keyframes toast-in { to { opacity:1; transform: translateY(0); } }
     @keyframes toast-out { to { opacity:0; transform: translateY(-8px); } }
   </style>
-  <!-- OCR -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
 </head>
 <body>
   <h1>Podiatry Tracker App</h1>
-  <p>Use this app to track the items and services dispensed. You can preview sample names, add patient names manually, or upload names via OCR. Save **without logging in** to your preset Google Sheet.</p>
-
-  <!-- Preview Sample Names -->
-  <div id="previewSection" class="section">
-    <h2>Preview Sample Names</h2>
-    <p>Click the button below to populate the table with sample patient names.</p>
-    <button id="previewButton">Preview Sample Names</button>
-  </div>
-
-  <!-- Manual Entry -->
+  <p>Use this app to track the items and services dispensed. Add patient names manually and mark procedures as Done. Save **without logging in** to your preset Google Sheet. Save **without logging in** to your preset Google Sheet.</p><!-- Manual Entry -->
   <div id="manualSection" class="section">
     <h2>Manually Add Patient</h2>
     <p>Enter a patient's name and click "Add Patient" to add it to the table.</p>
     <input type="text" id="manualName" placeholder="First Last">
     <button id="manualAddButton">Add Patient</button>
-  </div>
-
-  <!-- OCR Upload -->
-  <div id="uploadSection" class="section">
-    <h2>Upload Patient Names from Image (OCR)</h2>
-    <p>Upload an image file (screenshot) that contains patient names (one per line). The OCR process will extract the names and add them to the table.</p>
-    <input type="file" id="fileInput" accept="image/*">
-    <button id="uploadButton">Upload and Process OCR</button>
-    <p id="status"></p>
-  </div>
-
-  <!-- Data Table with Grouped Headers (from the first file) -->
+  </div><!-- Data Table with Grouped Headers (from the first file) -->
   <table id="patientsTable">
     <thead>
       <tr class="group-header">
@@ -62,6 +40,8 @@
         <th colspan="5">DME + DM SHOE + L3000</th>
         <th colspan="3">OFFICE PROCEDURES</th>
         <th colspan="2">IMAGING</th>
+        <th rowspan="2">Notes</th>
+        <th rowspan="2">Actions</th>
       </tr>
       <tr>
         <!-- SIMPLE PROCEDURES -->
@@ -129,7 +109,7 @@
 
     function createRow(name) {
       const tr = document.createElement('tr');
-      // Patient name cell (text; you add via Manual Add or OCR)
+      // Patient name cell
       const tdPatient = document.createElement('td');
       tdPatient.textContent = name;
       tr.appendChild(tdPatient);
@@ -143,6 +123,24 @@
         td.appendChild(btn);
         tr.appendChild(td);
       });
+      // Notes cell (auto-resize textarea)
+      const tdNotes = document.createElement('td');
+      const notes = document.createElement('textarea');
+      notes.placeholder = 'Notes…';
+      notes.style.width = '100%';
+      notes.style.boxSizing = 'border-box';
+      notes.style.overflow = 'hidden';
+      notes.style.resize = 'none';
+      notes.addEventListener('input', function(){ this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; });
+      tdNotes.appendChild(notes);
+      tr.appendChild(tdNotes);
+      // Actions cell (Remove)
+      const tdActions = document.createElement('td');
+      const rm = document.createElement('button');
+      rm.textContent = '✖ Remove';
+      rm.addEventListener('click', () => tr.remove());
+      tdActions.appendChild(rm);
+      tr.appendChild(tdActions);
       return tr;
     }
 
@@ -161,33 +159,13 @@
       if (trimmed) tbody.appendChild(createRow(trimmed));
     }
 
-    // ===== Event wiring for sample/manual/OCR =====
-    document.getElementById('previewButton').addEventListener('click', () => {
-      populateTable(['John Doe','Jane Smith','Alice Johnson','Bob Brown','Charlie Davis','Emily Wilson','Frank Miller','Grace Lee','Hannah Taylor','Ian Clark']);
-    });
-
+    // ===== Event wiring (manual only) =====
     document.getElementById('manualAddButton').addEventListener('click', () => {
       const input = document.getElementById('manualName');
       const name = input.value;
       if (!name.trim()) { alert('Please enter a valid name.'); return; }
-      addRow(name); input.value = '';
-    });
-
-    document.getElementById('uploadButton').addEventListener('click', () => {
-      const fileInput = document.getElementById('fileInput');
-      const statusElem = document.getElementById('status');
-      if (!fileInput.files.length) { alert('Please select an image file.'); return; }
-      const file = fileInput.files[0];
-      statusElem.textContent = 'Processing OCR, please wait...';
-      Tesseract.recognize(file, 'eng', { logger: m => console.log(m) })
-        .then(({ data: { text } }) => {
-          statusElem.textContent = 'OCR processing complete.';
-          const names = text.split(/
-?
-/);
-          populateTable(names);
-        })
-        .catch(err => { console.error(err); statusElem.textContent = 'Error during OCR processing.'; });
+      addRow(name);
+      input.value = '';
     });
 
     // ===== Export with login (gapi) — unchanged, just matches new headers
@@ -214,21 +192,32 @@
 
     function buildGridData(){
       const data = [];
-      // second header row defines the column names
-      const headerCells = document.querySelectorAll('#patientsTable thead tr:nth-child(2) th');
-      const headerRow = ['Patient'];
-      headerCells.forEach(cell => headerRow.push(cell.innerText.trim()));
+      // Build headers: Patient + procedure names + Notes (skip Actions)
+      const procHeaders = Array.from(document.querySelectorAll('#patientsTable thead tr:nth-child(2) th')).map(th => th.innerText.trim());
+      const headerRow = ['Patient', ...procHeaders, 'Notes'];
       data.push(headerRow);
 
-      // rows
+      // Rows
       document.querySelectorAll('#patientsTable tbody tr').forEach(row => {
-        const rowData = [];
         const cells = row.querySelectorAll('td');
-        cells.forEach((cell) => {
-          const btn = cell.querySelector('button');
-          if (btn) rowData.push(btn.classList.contains('done') ? '1' : '0');
-          else rowData.push(cell.innerText.trim()); // Patient name cell
-        });
+        const procCount = procHeaders.length;
+        const rowData = [];
+        // Patient
+        rowData.push(cells[0].innerText.trim());
+        // Procedures
+        for (let i = 0; i < procCount; i++) {
+          const btn = cells[1 + i].querySelector('button');
+          rowData.push(btn && btn.classList.contains('done') ? '1' : '0');
+        }
+        // Notes (textarea value if present)
+        const notesCell = cells[1 + procCount];
+        const notesVal = (notesCell.querySelector('textarea') ? notesCell.querySelector('textarea').value : notesCell.innerText.trim());
+        rowData.push(notesVal);
+        // Skip Actions column
+        data.push(rowData);
+      });
+      return data;
+    });
         data.push(rowData);
       });
       return data;
